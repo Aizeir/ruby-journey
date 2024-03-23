@@ -25,7 +25,7 @@ class World:
         self.new = not world_data
 
         # Day night
-        self.daydura = 60
+        self.daydura = 10#60¤
         self.daynight = self._daynight_compute()
 
         # cutscene
@@ -544,7 +544,7 @@ class World:
     def update_daynight(self):
         x = self._daynight_compute()
         self.display.fill((0,x*1/8,x*2/8), special_flags=pg.BLEND_RGB_SUB)
-        fade = 3000
+        fade = 30#¤ 3000
         
         # Transition
         if x>=15>=self.daynight or x<=240<=self.daynight:
@@ -557,11 +557,23 @@ class World:
             music("night.wav", -1, .7, fade_ms=fade*2)
             sounds.crickets.play(-1, fade_ms=fade*2)
             sounds.wind.play(-1, fade_ms=fade*2)
+
+            # PNJ go home
+            """for pnj in self.pnjs.values():
+                if pnj.house and not pnj.inside:
+                    pnj.go_home = True
+                    pnj.target = pnj.house.rect.midbottom"""
  
         # Dawn
         elif x<=128<=self.daynight:
             music("music.wav", -1, .7, fade_ms=fade*2)
             sounds.ambiance.play(-1, fade_ms=fade*2)
+            # PNJ go out: Open door (exit)
+            """for pnj in self.pnjs.values():
+                if not pnj.house: continue
+                pnj.house.status = "open"
+                pnj.house.frame_idx = 0
+                pnj.house.incoming = pnj"""
 
         # Paused
         if self.paused or self.cutscene:

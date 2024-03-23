@@ -72,6 +72,10 @@ class Prop(Sprite):
             if not(self.name in('hole','stair') and not self.world.quests['dungeon']):
                 world.mms.add(self)
 
+        # House
+        if self.name == "house" and self.data:
+            self.world.pnjs[self.data].house = self
+        
     def save(self):
         data = ""
         if self.data:
@@ -191,6 +195,31 @@ class Prop(Sprite):
                 pg.draw.rect(display, UI[6], r.inflate(8,8))
                 pg.draw.rect(display, UI[5], r.inflate(8,8), 4)
                 display.blit(tag,r)
+
+    def animate(self, dt):
+        res = super().animate(dt)
+
+        # House
+        if res and self.name == "house":
+            # Open door (enter or exit?)
+            if self.status == "open":
+                # Close back
+                self.status = "close"
+                self.frame_idx = 0
+
+                # Exit
+                if self.incoming.inside:
+                    self.incoming.exit(self)
+                    self.incoming = None
+                # Enter
+                else:
+                    self.incoming.enter()
+
+            # Close door
+            elif self.status == "close":
+                self.status = None
+            
+            self.update_image(self.status)
                 
     def update(self, dt):
         self.damage_timer.update()
