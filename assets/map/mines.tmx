@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="50" height="50" tilewidth="16" tileheight="16" infinite="0" backgroundcolor="#706758" nextlayerid="10" nextobjectid="24">
+ <tileset firstgid="1" source="props.tsx"/>
+ <tileset firstgid="20" source="floor.tsx"/>
+ <tileset firstgid="185" source="animal.tsx"/>
+ <layer id="8" name="floor" width="50" height="50">
+  <data encoding="base64" compression="zlib">
+   eJztmk0PwiAMhvntc9dtV/VqvPob3eKlIUDfQikwZ/IeTLaOZ/0E3Zxzj8G17Np2fQbXxdGXfI5p141oBmxM4LW+belzJBzH95UI8dUCXuvb5p4zCfg0OO7uVzOe4HUhhe69AzZjHP6zUDutdcY8R/O1R1EONF9biMt5yoHmK62fVr7j4j8nP2hNK62XPXP4Nv1PLxy0NiN1H+HgagzXSyzqLpJPpTVGY74qjUPq49y+a9HPuTjU0Bn7ee9K5dlIHKn4HIkjpRiHtCfX6OEaHFI/5fpVa1ZrzYH0FkuO0NwQO1eYvfs0eosWB/euqaR2kRkjtl7JHr82BzJj1Ky7sfORGrOJlENSX1Kf1hyS+nJx1OewmMEtOKyFzjs9cKT25uj6tDlCPZx7n6m9eSuOUO/j7Kf25q04Qr2vpB6gc0UP+aEVB7F9lPUZbg0OrX3BP3Bo/t6Smttz8xRdn+QslIvzGnmOrk9yFio948/Ra9c7c33Sd1OTw0JcnI/CgfhrZI71JBy+P2L/XxlFB8cXZTZQaQ==
+  </data>
+ </layer>
+ <objectgroup id="9" name="characters" visible="0"/>
+ <objectgroup id="2" name="props">
+  <object id="22" gid="14" x="400" y="240" width="14" height="14"/>
+  <object id="23" gid="18" x="401" y="472" width="13" height="32"/>
+ </objectgroup>
+</map>
