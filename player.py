@@ -1,9 +1,9 @@
 import math
 import pygame as pg
 from inventory import Inventory
-from sprites.entity import Entity
-from sprites.pebble import Pebble
-from util.support import *
+from entity import Entity
+from pebble import Pebble
+from util import *
 
 
 class Player(Entity):
@@ -81,10 +81,10 @@ class Player(Entity):
                 animation[n] = anims
                 self.shadows[n] = shadows
                 
-        anim('idle',  0)
-        anim("move",  1)
+        anim('idle', 0)
+        anim("move", 1)
         anim("damage",2)
-        anim("dead",  3)
+        anim("dead", 3)
         return animation
     
     def save(self):

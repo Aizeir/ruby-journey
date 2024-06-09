@@ -1,5 +1,5 @@
-from sprites.entity import Entity
-from util.support import *
+from entity import Entity
+from util import *
 
 RANGE = TS*8
 ATKZONE = (TS*2,TS)

@@ -1,4 +1,4 @@
-from util.support import *
+from util import *
 
 
 PNJ_IDX = ('explorer','blacksmith','fisherman','miner','lumberjack')
@@ -323,7 +323,7 @@ def pnj_data(pnj): return {
 
             }],
         ]
-    ],  
+    ], 
     "trade": [
         # I1,A1, I2,A2, dialog
         (7,3, 8,1, None),
@@ -409,7 +409,7 @@ def pnj_data(pnj): return {
             ["You", "the miNERD ?!.", None],
             ["M1N3RD", "H3110.", pnj.minerd],
         ]
-    ],  
+    ], 
     "trade": [
         # I1,A1, I2,A2, dialog
         (12,3, 7,1, None),
@@ -542,7 +542,7 @@ def pnj_data(pnj): return {
                 ]
             }],
         ]
-    ],  
+    ], 
     "trade": [
         # I1,A1, I2,A2, dialog
         (17,1, 6,80, [

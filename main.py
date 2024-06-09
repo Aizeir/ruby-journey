@@ -1,19 +1,24 @@
 from mainmenu import Mainmenu
-from util.support import *
-import asyncio
-
 from world import World
+from util import *
+
+### BUGS
+## BUG PAUSEMENU LAG (trans daynight??)
+
 class Game:
     def __init__(self):
         # Setup
-        pg.display.set_caption("Ruby Quest")
+        pg.display.set_caption("Ruby Journey")
         
         self.screen = pg.display.set_mode((W, H), pg.RESIZABLE)
         self.display = self.screen.copy()
         pg.display.set_icon(load("icon"))
         self.clock = pg.time.Clock()
+
+        # Window resize
         self.W,self.H = W,H
         self.fullscreen = False
+
         # Scenes
         self.world = None
         self.mainmenu = Mainmenu(self)
@@ -43,7 +48,7 @@ class Game:
 
         for e in pg.event.get():
             if e.type == pg.QUIT:
-                pg.image.save(self.display, "capture5.png")
+                screenshot(self.display, "capture5.png")
                 if self.world:
                     with open("assets/data.json","w") as file:
                         json.dump(self.world.save(), file)

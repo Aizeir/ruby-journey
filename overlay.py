@@ -1,5 +1,5 @@
 import pygame as pg, math
-from util.support import *
+from util import *
 
 
 panelx, panely = 75*UI_SCALE, 18*UI_SCALE
@@ -36,17 +36,18 @@ class Overlay:
         # Panels
         def panel_None(): self.panel = None
         self.panel_timer = Transition(300, 150, callmid=self.open_panel_dialog, callend=panel_None)
+        self.noquest_timer = Timer(1000)
         self.pnj = None
         self.panel = None
         self.dialog_panel = False
 
         # Trade panel
         self.trade_imgs = load_tileset("ui/trade", (panelx, panely), UI_SCALE)
-        self.trade_rect = rectx((panelx, 4*panely), "midtop", (W/2,H*.35))
+        self.trade_rect = pg.Rect(0,0, panelx,4*panely).move_to(midtop=(W/2,H*.35))
 
         # PNJ panel
         self.pnj_imgs = load_tileset("ui/pnj", (panelx, panely), UI_SCALE)
-        self.pnj_rects = [rectx((panelx,panely),"midtop",(W/2, H*.35+y*(panely+panel_space))) for y in range(4)]
+        self.pnj_rects = [pg.Rect(0,0, panelx,panely).move_to(midtop=(W/2, H*.35+y*(panely+panel_space))) for y in range(4)]
         
         # Dialog
         self.dialog = None
@@ -54,8 +55,8 @@ class Overlay:
         self.dialog_time = None
         self.dialog_last = None
         self.dialog_choices = {}
-        self.faces = load_folder_dict("faces", load, 4)
-        self.faces_mini = load_folder_dict("faces", load, 3)
+        self.faces = load_folder_dict("faces", 4)
+        self.faces_mini = load_folder_dict("faces", 3)
 
         # arrows
         arrow, arrow2 = load_tileset("ui/arrow", (10*4,7*4), 4)
@@ -64,18 +65,18 @@ class Overlay:
 
         # Inventory (+items)
         self.items = load_tileset("tilesets/items", (64,64), 4)
-        self.inventory_img = load("ui/inventory", scale=UI_SCALE)
+        self.inventory_img = load("ui/inventory", UI_SCALE)
         self.inventory_rect = self.inventory_img.get_rect(bottomleft=(32,H-64))
         self.inv_idx = 0
 
         # tip
-        self.tip_img = load("ui/tip", scale=UI_SCALE)
+        self.tip_img = load("ui/tip", UI_SCALE)
 
         # Tools
         self.tools_imgs = load_tileset("ui/tool", (20*UI_SCALE,20*UI_SCALE), UI_SCALE)
         self.tab_imgs = load_tileset("ui/tab", (21*UI_SCALE,12*UI_SCALE), UI_SCALE)
-        self.tool_limit_img = load("ui/tool_limit", scale=UI_SCALE)
-        self.tool_rects = [rectx(self.tools_imgs[0].get_size(), "bottomright", vec2(W-48, H-80-(self.tools_imgs[0].get_height()+UI_SCALE)*y)) for y in range(maxtools)]
+        self.tool_limit_img = load("ui/tool_limit", UI_SCALE)
+        self.tool_rects = [pg.Rect(0,0, *self.tools_imgs[0].get_size()).move_to(bottomright=vec2(W-48, H-80-(self.tools_imgs[0].get_height()+UI_SCALE)*y)) for y in range(maxtools)]
         
         def tool_switch():
             sounds.switch.play()
@@ -107,11 +108,11 @@ class Overlay:
         # Quest
         self.quest_icon = load_tileset("ui/quest", (64,64), 4)
         self.quest_rect = self.quest_icon[0].get_rect(topright=(W-48,32))
-        self.quest_notif_trans = Transition(1000, callmid=True)
+        self.quest_notif_timer = Timer(1000)
 
-        self.quest_img = load("ui/questlist", scale=UI_SCALE)
-        self.quest_rects = [rectx(self.quest_img.get_size(),"midtop",(W/2, H*.35+y*(self.quest_img.get_height()+panel_space))) for y in range(len(self.world.pnjs))]
-        self.noquest_img = load("ui/noquest", scale=UI_SCALE//2)
+        self.quest_img = load("ui/questlist", UI_SCALE)
+        self.quest_rects = [pg.Rect(0,0, *self.quest_img.get_size()).move_to(midtop=(W/2, H*.35+y*(self.quest_img.get_height()+panel_space))) for y in range(len(self.world.pnjs))]
+        self.noquest_img = load("ui/noquest", UI_SCALE//2)
 
         # Interact
         self.interact_imgs = load_tileset("ui/interact", (64*UI_SCALE,18*UI_SCALE), UI_SCALE)
@@ -192,6 +193,8 @@ class Overlay:
             if self.panel == "quest":
                 sounds.panel.play()
                 self.panel_timer.activate(1)
+            elif not self.player.quests:
+                self.quest_notif_timer.toggle()
             else:
                 self.open_panel("quest")
         # Minimap
@@ -422,16 +425,17 @@ class Overlay:
         hover = self.quest_rect.collidepoint(self.world.mouse_pos) and not active
         self.display.blit(self.quest_icon[active+2*hover], self.quest_rect)
         
+        # Notifs
+        self.quest_notif_timer.update()
+        x = self.quest_notif_timer.percent(0)
+        
         # No Quest
-        if hover and not self.player.quests:
+        if x and not self.player.quests:
             self.display.blit(self.noquest_img, self.noquest_img.get_rect(midright=self.quest_rect.midleft+vec2(-UI_SCALE, 0)))
-
         # Quest notif
-        self.quest_notif_trans.update()
-        x = self.quest_notif_trans.percent(200)
-        if x:
+        elif x:
             # title, desc, icon
-            pnj = self.world.pnjs[self.quest_notif_trans.pnj]
+            pnj = self.world.pnjs[self.quest_notif_timer.pnj]
             rect = self.quest_img.get_rect(topright=self.quest_rect.topleft+vec2(0,-UI_SCALE))
             self.draw_quest_img(rect, pnj)
 
@@ -466,7 +470,7 @@ class Overlay:
             topleft=rect.topleft+vec2(20*UI_SCALE,11*UI_SCALE-2)))
         
         # icon
-        icon = load(self.world.mm2[pnj.mm], scale=3)
+        icon = load(self.world.mm2[pnj.mm], 3)
         self.display.blit(icon, icon.get_rect(
             topleft=rect.topleft+vec2(-UI_SCALE-2,2*UI_SCALE)))
 
@@ -510,7 +514,7 @@ class Overlay:
         w = max(196, *[t.get_width() for t in texts]) + 2*margin
         h = top_margin + len(texts) * (size+interline) - interline + bot_margin
         
-        self.dialog_rect = rectx((w,h), "midbottom", (W/2,H-80 + 32*self.dialog_panel))
+        self.dialog_rect = pg.Rect(0,0, w,h).move_to(midbottom=(W/2,H-80 + 32*self.dialog_panel))
         if not draw_choices: self.dialog_rect.h += 8
         rect = self.dialog_rect
 

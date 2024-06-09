@@ -22,6 +22,9 @@ class Timer:
         self.active = False
         self.start_time = 0
 
+    def toggle(self):
+        if self.active: self.deactivate()
+        else: self.activate()
 
     def time(self, default=0):
         if self.active: return (pg.time.get_ticks()-self.start_time)

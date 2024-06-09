@@ -1,9 +1,9 @@
-from sprites.animal import Animal
-from sprites.prop import Prop
-from sprites.queen import Queen
+from animal import Animal
+from prop import Prop
+from queen import Queen
 from util.prop_data import PROP_DATA
-from util.support import *
-from sprites.sprite import Sprite
+from util import *
+from sprite import Sprite
 
 
 class Pebble(Sprite):

@@ -5,14 +5,14 @@ import time
 from pytmx.util_pygame import load_pygame
 from overlay import Overlay
 from player import Player
-from sprites.animal import Animal
-from sprites.pnj import PNJ
-from sprites.prop import Prop
-from sprites.queen import Queen
-from sprites.sprite import Sprite
+from animal import Animal
+from pnj import PNJ
+from prop import Prop
+from queen import Queen
+from sprite import Sprite
 from util.pnj_data import PNJ_IDX
 from util.prop_data import PROP_DATA
-from util.support import *
+from util import *
 import particle
 
 class World:
@@ -25,8 +25,8 @@ class World:
         self.new = not world_data
 
         # Day night
-        self.daydura = 10#60¤
-        self.daynight = self._daynight_compute()
+        self.daydura = 60
+        self.daynight = self.compute_daynight()
 
         # cutscene
         self.cutscene = None
@@ -36,7 +36,7 @@ class World:
         self.mouse_world_pos = vec2()
 
         # Tools
-        self.tools = {n: [x,pg.transform.rotate(pg.transform.flip(x,1,0), 180),pg.transform.rotate(x, -90),pg.transform.rotate(pg.transform.flip(x,1,0), 90)] for n,x in load_folder_dict("tools", load, SCALE).items()}
+        self.tools = {n: [x,pg.transform.rotate(pg.transform.flip(x,1,0), 180),pg.transform.rotate(x, -90),pg.transform.rotate(pg.transform.flip(x,1,0), 90)] for n,x in load_folder_dict("tools", SCALE).items()}
 
         # Sprites
         self.sprites = pg.sprite.Group()
@@ -71,23 +71,28 @@ class World:
         self.timers['end'] = Transition(1000,callmid=self.end,callend=callend)
 
         # Images
-        self.pnj_imgs = load_folder_dict('pnj', load_tileset, (15*SCALE,24*SCALE))
+        self.pnj_imgs = {name: load_tileset(img, (15*SCALE,24*SCALE)) for name, img in load_folder_dict('pnj', SCALE).items()}
         self.queen_imgs = load_tileset("animal/queen", (64*SCALE,70*SCALE))
         self.animal_imgs = {
             'chicken':load_tileset("animal/chicken", (16*SCALE,18*SCALE)),
             'racoon':load_tileset("animal/racoon", (16*SCALE,18*SCALE))
         }
         # - props
+        mine_imgs = load_tileset("props/mine", (38*SCALE,52*SCALE))
         house_imgs = load_tileset("props/house", (44*SCALE,50*SCALE))
         boat_imgs = load_tileset("props/boat", (56*SCALE,32*SCALE))
-        self.props_imgs = load_folder_dict("props", load, SCALE)
+        self.props_imgs = load_folder_dict("props", SCALE)
         self.props_imgs |= {
             'house':{
                 None: [house_imgs[0]],
                 "open": house_imgs,
                 "close": list(reversed(house_imgs))
             },
-            'mine':{None:load_tileset("props/mine", (38*SCALE,52*SCALE))},
+            'mine':{
+                None: [mine_imgs[0]],
+                "open": mine_imgs,
+                "close": list(reversed(mine_imgs))
+            },
             'torch':{None:load_tileset("props/torch", (5*SCALE,13*SCALE))},
             'campfire':{None:load_tileset("props/campfire", (12*SCALE,13*SCALE))},
             'boat':{None:boat_imgs[:2]},
@@ -143,7 +148,7 @@ class World:
         # Particles
         gravity = 40
         # - bubble
-        bubble = load('particle/bubble', scale=SCALE)
+        bubble = load('particle/bubble', SCALE)
         self.bubble_pc = particle.Particle(size=4)
         self.bubble_pc.draw(particle.draw_image)
         @self.bubble_pc.update
@@ -203,7 +208,7 @@ class World:
             if p['size'] <= 2:
                 self.hammer_pc.delete(p)
         # - footprint
-        foot = load('particle/foot', scale=SCALE)
+        foot = load('particle/foot', SCALE)
         self.foot_pc = particle.Particle(dura=600)
         self.foot_pc.init(lambda p,**k: {'image': foot.copy()})
         self.foot_pc.draw(lambda p,w:self.display.blit(p['image'],p['pos']-self.offset))
@@ -219,9 +224,9 @@ class World:
         # Floors
         self.floor_colors = {WILD:"#4a787b", MINES:(89,82,70), DUNGEON:"#333333"}
         self.floors = {
-            WILD:load("map/map", scale=SCALE),
-            MINES:load("map/mines", scale=SCALE),
-            DUNGEON:load("map/dungeon", scale=SCALE),
+            WILD:load("map/map", SCALE),
+            MINES:load("map/mines", SCALE),
+            DUNGEON:load("map/dungeon", SCALE),
         }
         self.water_pcs = []
         self.water_pcs_idx = 0
@@ -432,7 +437,7 @@ class World:
         ]
 
     def play_music(self):
-        #return# !!!
+        #return# #!
         if self.player.map == WILD:
             if self.daynight <= 128:
                 music("music.wav", -1, .7, fade_ms=self.timers['map'].duration)
@@ -537,14 +542,14 @@ class World:
             self.cutscene[1]()
             self.cutscene = None
 
-    def _daynight_compute(self):
+    def compute_daynight(self):
         t = sin((pg.time.get_ticks() / (self.daydura*1000) + 1)*math.pi)
         return math.e**(8*t)/(1+math.e**(8*t)) * 255
 
     def update_daynight(self):
-        x = self._daynight_compute()
+        x = self.compute_daynight()
         self.display.fill((0,x*1/8,x*2/8), special_flags=pg.BLEND_RGB_SUB)
-        fade = 30#¤ 3000
+        fade = 3000
         
         # Transition
         if x>=15>=self.daynight or x<=240<=self.daynight:
@@ -558,7 +563,7 @@ class World:
             sounds.crickets.play(-1, fade_ms=fade*2)
             sounds.wind.play(-1, fade_ms=fade*2)
 
-            # PNJ go home
+            # PNJ go home ##
             """for pnj in self.pnjs.values():
                 if pnj.house and not pnj.inside:
                     pnj.go_home = True
@@ -568,7 +573,7 @@ class World:
         elif x<=128<=self.daynight:
             music("music.wav", -1, .7, fade_ms=fade*2)
             sounds.ambiance.play(-1, fade_ms=fade*2)
-            # PNJ go out: Open door (exit)
+            # PNJ go out: Open door (exit) ##
             """for pnj in self.pnjs.values():
                 if not pnj.house: continue
                 pnj.house.status = "open"
@@ -671,8 +676,8 @@ class World:
         particle.draw(self, self.hammer_pc)
         # - sprites
         for sprite in sorted(self.filter, key=lambda s: s.hitbox.bottom):
-            pg.draw.rect(self.display, 'green', sprite.rect.move(-self.offset))
-            pg.draw.rect(self.display, 'red', sprite.hitbox.move(-self.offset))
+            #pg.draw.rect(self.display, 'green', sprite.rect.move(-self.offset))
+            #pg.draw.rect(self.display, 'red', sprite.hitbox.move(-self.offset))
             sprite.draw()
         # - particles (no walk_pc)
         particle.draw(self,self.scratch_pc,self.damage_pc,self.bubble_pc)

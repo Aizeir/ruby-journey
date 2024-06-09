@@ -1,5 +1,5 @@
-from util.support import *
-from sprites.sprite import Sprite
+from util import *
+from sprite import Sprite
 
 
 class Entity(Sprite):

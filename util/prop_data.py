@@ -1,4 +1,4 @@
-from util.support import *
+from util import *
 
 # Shadow constan
 SHS = 4*SCALE

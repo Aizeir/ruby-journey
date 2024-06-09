@@ -1,6 +1,6 @@
-from sprites.sprite import Sprite
+from sprite import Sprite
 from util.prop_data import PROP_DATA
-from util.support import *
+from util import *
 
 class Prop(Sprite):
     def __init__(self, data, world, groups, setpos=False):
@@ -198,7 +198,7 @@ class Prop(Sprite):
 
     def animate(self, dt):
         res = super().animate(dt)
-
+        return##
         # House
         if res and self.name == "house":
             # Open door (enter or exit?)
@@ -213,6 +213,7 @@ class Prop(Sprite):
                     self.incoming = None
                 # Enter
                 else:
+                    print("???")
                     self.incoming.enter()
 
             # Close door

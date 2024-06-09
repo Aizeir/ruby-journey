@@ -1,4 +1,4 @@
-from util.support import *
+from util import *
 
 def draw_circle(p,w):
     pg.draw.circle(w.display, p['color'], p['pos']-w.offset, p['radius'], p.get('width',0))

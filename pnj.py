@@ -1,5 +1,5 @@
-from util.support import *
-from sprites.entity import Entity
+from util import *
+from entity import Entity
 from util.pnj_data import *
 
 PNJ_MM = [2,3,4,5,12]
@@ -24,7 +24,7 @@ class PNJ(Entity):
         self.house = None
         self.go_home = False
         self.speed *= .3
-        self.inside = self.pos.x<0
+        self.inside = False
 
         self.target = self.pos
 
@@ -102,8 +102,8 @@ class PNJ(Entity):
             if self.name not in self.world.player.quests:
                 sounds.quest.play()
                 self.world.player.quests.append(self.name)
-                self.world.overlay.quest_notif_trans.activate()
-                self.world.overlay.quest_notif_trans.pnj = self.name
+                self.world.overlay.quest_notif_timer.activate()
+                self.world.overlay.quest_notif_timer.pnj = self.name
                 
             # Non-item: Verify if done: complete
             if quest[0] in self.world.quests:
@@ -257,9 +257,11 @@ class PNJ(Entity):
 
         # Wander
         elif not self.inside:
+            self.target = None
+            return
             x = choice((0,1))*choice((-1,1))
             y = 0 if x else choice((0,1))*choice((-1,1))
-            self.target = self.pos + vec2(x,y) * randint(1,1)*TS
+            self.target = self.pos + vec2(x,y) * randint(1,1)*timers_update
 
     def enter(self):
         self.inside = True
@@ -272,12 +274,9 @@ class PNJ(Entity):
     
     def move(self, dt):
         if not self.target: return
-        print(self.target-self.pos)
         # Get directions
         vec = self.target - self.pos
         dirs = list(sorted([vec2(1,0),vec2(-1,0),vec2(0,1),vec2(0,-1)], key=lambda d: d.angle_to(vec)))
-        print(dirs)
-        print()
         for dir in dirs:
             if not self.collision(dir * self.speed * dt): break
         else: return

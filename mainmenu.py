@@ -2,7 +2,7 @@ from math import sin
 from random import choice
 import pygame as pg, json
 
-from util.support import *
+from util import *
 
 trans_time = 1000
 
@@ -22,7 +22,7 @@ class Mainmenu:
         self.menu = "title"
 
         # Floor and logo
-        self.logo = load("icon", scale=6)
+        self.logo = load("icon", 6)
         self.offset = 0
         self.floor = pg.Surface((W*2, H))
         self.floor.fill(WILDCOLOR)
@@ -30,6 +30,7 @@ class Mainmenu:
         SIZE = TS
         self.details = load_tileset('tilesets/details', size=(SIZE,SIZE))
         self.details = self.details[:len(self.details)//2]
+
         for     y in range(0,self.floor.get_height(),SIZE):
             for x in range(0,self.floor.get_width(),SIZE):
                 if not proba(2): continue
@@ -98,7 +99,7 @@ class Mainmenu:
         # BEGIN SCREEN
         self.begin_tale = [textr(text, self.font, UI[6],
             center=(W/2,H*.9+i*128)) for i,text in enumerate([
-            """"That's it. A ruby.",
+            """"That's it. A ruby.", ##
             "I need it for my collection of rare items.",
             "According to my sources",
             "someone has one in this hamlet.",
@@ -118,7 +119,7 @@ class Mainmenu:
         self.offset = 0
 
     def play_music(self):
-        #return#!!!
+        #return##!
         music("music2.wav", -1, 10, fade_ms=2000)
 
     def end_callback(self):

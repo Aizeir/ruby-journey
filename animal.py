@@ -1,5 +1,5 @@
-from util.support import *
-from sprites.entity import Entity
+from util import *
+from entity import Entity
 
 RANGE = TS*2
 HITBOXES = {'chicken':(12*SCALE,5*SCALE),'racoon':(12*SCALE,5*SCALE)}
