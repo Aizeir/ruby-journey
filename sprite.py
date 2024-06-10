@@ -48,77 +48,96 @@ class Sprite(pg.sprite.Sprite):
             self.shadow = self.shadows[self.animation.status][int(self.animation.frame_idx)]
         
 
-class Sprite(pg.sprite.Sprite):
-    """ 
-    The generic Sprite.
-    includes Animation, Hitbox, Health
-    """
-    def __init__(self, world, map, pos, anim, groups, hitbox=None, status=None, side=None):
-        super().__init__(groups)
-        self.map = map
-        self.world = world
 
-        # Animation
-        self.image = anim
-        
-        self.animated = isinstance(anim, dict)
-        if self.animated:
-            self.animation = anim
-            self.frame_idx = 0
-            
-            self.status, self.side = status, side
-            status = self.status+"_"+self.side if self.status and self.side else self.status or self.side
-            self.image = anim[status][0]
-        
-        # Rect
-        self.rect = self.image.get_rect(topleft = pos)
 
-        if isinstance(hitbox, pg.Rect):
-            self.hitbox = hitbox.move(pos)
+
+
+
+
+
+
+
+
+
+
+
+class Entity(Sprite):
+    def __init__(self, world, map, pos, groups, hitbox=None, status='idle_R'):
+        super().__init__(world, map, pos, self.load_graphics(world), groups, hitbox, status)
+        
+        # Movement
+        self.direction = vec2()
+        self.speed = 50*SCALE
+
+        # Collision
+        self.hitbox_offset = self.pos-self.rect.center
+        self.set_position(pos)
+
+        # Timers
+        self.timers = {
+            #"timer": Timer(200),
+        }
+
+    def load_graphics(self, world):
+        return {}
+
+    def get_side(self):
+        if self.direction.x:
+            self.side = ("L","R")[self.direction.x>0]
+    
+    def get_status(self):
+        """ Compute entity status. """
+        # Idle
+        if self.direction.magnitude() == 0:
+            self.status = "idle"
         else:
-            self.hitbox = pg.Rect((0,0),hitbox or self.image.get_size())
-            self.hitbox.midbottom = self.rect.midbottom
+            self.status = "move"
 
+    def set_position(self, pos=None):
+        """ Set position (regardless collisions). """
+        self.hitbox.center = pos or self.hitbox.center
+        self.rect.center = self.hitbox.center - self.hitbox_offset
         self.pos = vec2(self.hitbox.center)
 
-        # shadow
-        self.shadow = getattr(self, "shadow", None)
+    def move(self, dt):
+        # Normalize direction
+        if self.direction.magnitude() > 0:
+            self.direction = self.direction.normalize()
+        
+        # Apply movement
+        self.hitbox.centerx += round(self.direction.x * self.speed * dt)
+        self.collision("h")
+        self.hitbox.centery += round(self.direction.y * self.speed * dt)
+        self.collision("v")
 
-        # Particles
-        #self.particles = []
+        self.set_position()
 
+    def collision(self, direction):
+        for sprite in self.world.collides_filter:
+            if sprite != self and sprite.hitbox.colliderect(self.hitbox):
+                if direction == "h":
+                    if self.direction.x > 0:
+                        self.hitbox.right = sprite.hitbox.left
+                    elif self.direction.x < 0:
+                        self.hitbox.left = sprite.hitbox.right
+                elif direction == "v":
+                    if self.direction.y > 0:
+                        self.hitbox.bottom = sprite.hitbox.top
+                    elif self.direction.y < 0:
+                        self.hitbox.top = sprite.hitbox.bottom
+        
     def animate(self, dt):
-        if not self.animated: return
-        
-        status = self.status+"_"+self.side if self.status and self.side else self.status or self.side
-        if status not in self.animation: return
-        
-        old_fidx = self.frame_idx
-        self.frame_idx += ANIM_SPEED * dt
-        self.frame_idx %= len(self.animation[status])
-        self.update_image(status)
+        res = super().animate(dt)
+        self.rect = self.image.get_rect(center=self.pos-self.hitbox_offset)
+        return res
 
-        if getattr(self, 'shadows', None):
-            self.shadow = self.shadows[status][int(self.frame_idx)]
-        
-        return self.frame_idx < old_fidx
-    
-    def update_image(self, status=None):
-        status = status or self.status+"_"+self.side if self.status and self.side else self.status or self.side
-        self.image = self.animation[status][int(self.frame_idx)]
+    def update_timers(self):
+        for timer in self.timers.values():
+            timer.update()
 
-    def damage_pc(self, img=None):
-        self.world.damage_pc.new(
-            vec2(randint(self.rect.x,self.rect.right),randint(self.rect.y,self.rect.bottom)),
-            image=(img or self.dmg_img).copy(),
-            floor=self.rect.bottom,
-            #group=self.particles
-        )
-    
-    def draw(self):
-        if self.shadow:
-            self.world.display.blit(self.shadow, self.shadow.get_rect(midtop=self.rect.midbottom-self.world.offset))
-        self.world.display.blit(self.image, self.rect.move(-self.world.offset))
-        
     def update(self, dt):
-        self.animate(dt)
+        super().update(dt)
+        self.get_side()
+        self.get_status()
+        self.move(dt)
+        self.update_timers()

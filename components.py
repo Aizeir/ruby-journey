@@ -2,14 +2,16 @@ from util import *
 
 
 class Collision:
-    def __init__(self, sprite, world, pos, hitbox):
+    def __init__(self, sprite, world, hitbox):
         if not hitbox:
-            self.hitbox = None
-            return
+            self.hitbox = None; return
+        elif isinstance(hitbox, pg.Rect):
+            self.hitbox = hitbox.move(sprite.rect.topleft)
+        else:
+            self.hitbox = pg.Rect((0,0),hitbox).move_to(midbottom=sprite.rect.midbottom)
         
+        self.offset = self.hitbox.topleft - vec2(sprite.rect.topleft)
         sprite.add(world.collides)
-        self.hitbox = hitbox.move(pos)
-        self.offset = self.hitbox.topleft - vec2(pos)
         
 
 class Animation:
@@ -105,25 +107,35 @@ class Movement:
         # Update rect
         sprite.rect.topleft = sprite.hitbox.topleft - sprite.collision.offset
         
+        
 class Health:
-    def __init__(self, max, value=None, die=None):
+    def __init__(self, max, value=None, die=None, cooldown=0):
         self.max = max
         self.value = value if value!=None else max
+        self.cooldown = Timer(cooldown)
 
         self.die = die or (lambda:None)
 
-    def on_die(self, func): self.die = func
-
     @property
     def percent(self): return self.value / self.max
-
-    def add(self, x):
-        if self.value == 0: return
-        self.value = clamp(0, self.value+x, self.max)
-        if self.value == 0: self.die()
+    @property
+    def dead(self): return self.value == 0
 
     def __add__(self, x): self.add(+x); return self
     def __sub__(self, x): self.add(-x); return self
     def __eq__(self, x): return x == self.value
     def __repr__(self): return f"{self.value}"
     def __bool__(self): return self.value > 0
+
+    def on_die(self, func):
+        self.die = func
+
+    def add(self, x):
+        if self.dead or self.cooldown.active: return
+        self.cooldown.activate()
+
+        self.value = clamp(0, self.value+x, self.max)
+        if self.dead: self.die()
+
+    def update(self, dt):
+        self.cooldown.update()

@@ -1,18 +1,18 @@
 from sprite import Sprite
 from util.prop_data import PROP_DATA
 from util import *
+from components import *
 
 class Prop(Sprite):
-    def __init__(self, data, world, groups, setpos=False):
-        """ Data: deja split """
-
-        # Name & Animation
+    def __init__(self, data, world, center=False):
+        # Name
         self.name = data[2]
         info = PROP_DATA[self.name]
         anim_name = self.name if self.name!='tree' else choice(('tree','tree2'))
-        anim = world.props_imgs[anim_name]
 
-        super().__init__(world, data[3], (int(data[0]),int(data[1])), anim, groups, info['hitbox'])
+        # Init
+        super().__init__(world, data[3], (int(data[0]),int(data[1])), world.props_imgs[anim_name], info['hitbox'])
+        self.add(self.world.props)
         
         # Shadow
         if 'shadow' in info:
@@ -23,7 +23,7 @@ class Prop(Sprite):
                 self.shadow = shadows
 
         # Center pos
-        if setpos: self.set_position(self.rect.topleft)
+        if center: self.set_position(self.rect.topleft)
         
         # Info
         self.drop = info.get('drop')
@@ -31,13 +31,11 @@ class Prop(Sprite):
         
         # Damage
         self.dmg_imgs = [world.damage_imgs[x] for x in info.get('damage',[0])]
-        self.max_health = info.get('health', 1)
-        self.health = int(data[4]) if data[4] else self.max_health
-        self.damage_timer = Timer(500)
+        self.health = Health(info.get('health',1), int(data[4]) if data[4] else None, self.die, 500)
 
         # Alpha
         self.alpha_timer = Transition(200, 100)
-        self.behind = False
+        self.plr_behind = False
 
         # Data
         self.data = data[5] if len(data)>5 else None
@@ -79,16 +77,16 @@ class Prop(Sprite):
     def save(self):
         data = ""
         if self.data:
-            if isinstance(self.data, list): data = json.dumps(self.data)
-            else: data = str(self.data)
-            data = " "+data
+            if isinstance(self.data, list):
+                data = json.dumps(self.data)
+            else:
+                data = str(self.data)
+            data = " " + data
         return f"{int(self.pos.x)} {int(self.pos.y)} {self.name} {self.map} {self.health}"+data
 
     def set_position(self, pos=None):
-        """ Set position (regardless collisions). """
         self.hitbox.center = pos or self.hitbox.center
-        self.rect.midbottom = self.hitbox.midbottom
-        self.pos = vec2(self.hitbox.center)
+        self.rect.topleft = self.hitbox.topleft - self.collision.offset
 
     def damage_pc(self):
         self.world.damage_pc.new(
@@ -100,23 +98,28 @@ class Prop(Sprite):
     
     def damage(self):
         if self.name == 'abandoned' and self.data != None: return
+        
         self.health -= 1
-        self.damage_timer.activate()
         sounds.hit.play()
+        for _ in range(self.health):
+            self.damage_pc()
 
-        for _ in range(self.health): self.damage_pc()
-
-        if self.health == 0:
-            for _ in range(self.max_health): self.damage_pc()
-            sounds.lasthit.play()
-            if self.drop:
-                self.world.player.additem(*self.drop)
-            if self.name == 'abandoned' and self.data == None:
-                self.world.quests['abandoned'] = True
-                self.data = "d"
-                self.image = self.world.props_imgs['barn_destroy']
-                return
-            self.kill()
+    def die(self):
+        sounds.lasthit.play()
+        # damage particles final
+        for _ in range(self.health.max):
+            self.damage_pc()
+        # drops
+        if self.drop:
+            self.world.player.additem(*self.drop)
+        # abandoned: destroy but dont kill
+        if self.name == 'abandoned' and self.data == None:
+            self.world.quests['abandoned'] = True
+            self.data = "d"
+            self.image = self.world.props_imgs['barn_destroy']
+            return
+        # kill
+        self.kill()
     
     def interact(self):
         plr = self.world.player
@@ -156,20 +159,20 @@ class Prop(Sprite):
         display, rect = self.world.display, self.rect.move(-self.world.offset)
 
         # behind
-        old = self.behind
+        old = self.plr_behind
         plr_hitbox = self.world.player.hitbox
-        self.behind = plr_hitbox.colliderect(self.rect) and (plr_hitbox.bottom <= self.hitbox.top)
-        self.alpha_timer.activate_var(self.behind, old)
+        self.plr_behind = plr_hitbox.colliderect(self.rect) and (plr_hitbox.bottom <= self.hitbox.top)
+        self.alpha_timer.activate_var(self.plr_behind, old)
 
         # alpha
-        alpha = self.damage_timer.percent() * (1-.3*self.alpha_timer.percent())
+        alpha = self.health.cooldown.percent() * (1-.3*self.alpha_timer.percent())
         self.image.set_alpha(255*alpha)
         if self.shadow: self.shadow.set_alpha(255*alpha)
         
         # Health
-        if self.damage_timer.active:
+        if self.health.cooldown.active:
             surf = pg.Surface((24,12))
-            surf.set_alpha((1-self.damage_timer.percent())*255)
+            surf.set_alpha((1-self.health.cooldown.percent())*255)
             surf.fill("#734d5c")
             pg.draw.rect(surf, '#a76772', (0,0,surf.get_width()*self.health/self.max_health,surf.get_height()))
             display.blit(surf, surf.get_rect(midbottom=rect.midtop+vec2(0,-4)))
@@ -223,7 +226,8 @@ class Prop(Sprite):
             self.update_image(self.status)
                 
     def update(self, dt):
-        self.damage_timer.update()
+        super().update(dt)
+        self.health.update()
         self.alpha_timer.update()
 
         # apples ready
@@ -236,5 +240,3 @@ class Prop(Sprite):
                     randint(0, 21)*SCALE,
                 
                 ) for _ in range(randint(2,4))]]
-
-        return super().update(dt)
