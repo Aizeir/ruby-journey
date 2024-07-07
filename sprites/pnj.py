@@ -22,11 +22,9 @@ class PNJ(Entity):
         self.mm = PNJ_MM[PNJ_IDX.index(self.name)]
 
         self.house = None
-        self.go_home = False
         self.speed *= .3
-        self.inside = self.pos.x<0
-
-        self.target = self.pos
+        self.inside = self.world.night()
+        if self.inside: self.enter()
 
     def save(self):
         return {
@@ -243,53 +241,23 @@ class PNJ(Entity):
             ["M1N3RD", f"How much I have left ?", choices],
         ]
 
-
-    def update_target(self):
-        if not self.target or self.pos.distance_to(self.target) > TS//4: return
-        
-        # Home
-        if self.go_home:
-            self.target = None
-            self.go_home = False
-            self.house.status = "open"
-            self.house.frame_idx = 0
-            self.house.incoming = self
-
-        # Wander
-        elif not self.inside:
-            x = choice((0,1))*choice((-1,1))
-            y = 0 if x else choice((0,1))*choice((-1,1))
-            self.target = self.pos + vec2(x,y) * randint(1,1)*TS
+    def open_door(self):
+        if not self.house: return
+        self.house.status = "open"
+        self.house.frame_idx = 0
+        self.house.incoming = self
 
     def enter(self):
         self.inside = True
-        self.set_position((-100,100))
+        self.remove(self.world.collides)
+        self.remove(self.world.interacts)
 
-    def exit(self, house):
-        self.side = "B"
+    def exit(self):
         self.inside = False
-        self.set_position(house.rect.midbottom)
-    
-    def move(self, dt):
-        if not self.target: return
-        print(self.target-self.pos)
-        # Get directions
-        vec = self.target - self.pos
-        dirs = list(sorted([vec2(1,0),vec2(-1,0),vec2(0,1),vec2(0,-1)], key=lambda d: d.angle_to(vec)))
-        print(dirs)
-        print()
-        for dir in dirs:
-            if not self.collision(dir * self.speed * dt): break
-        else: return
-        self.direction = dir
-        self.hitbox.move_ip(dir * self.speed * dt)
-        self.set_position()
+        self.add(self.world.collides)
+        self.add(self.world.interacts)
 
-    def collision(self, dir):
-        for s in self.world.collides:
-            if s != self and s.hitbox.colliderect(self.hitbox.move(dir)):
-                return True
+    def draw(self):
+        if self.inside: return
+        super().draw()
     
-    def update(self, dt):
-        self.update_target()
-        return super().update(dt)

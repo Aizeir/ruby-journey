@@ -147,7 +147,7 @@ class Prop(Sprite):
             if self.world.quests['dungeon']:
                 self.world.teleport(self.name)
             else:
-                self.world.overlay.open_dialog(['You', "I'm too scared to enter for now.\nI hear some noise inside...", None])
+                self.world.overlay.open_dialog(['You', "It's too scary to enter\nI see someone inside...", None])
         else:
             self.world.teleport(self.name)
 
@@ -188,7 +188,7 @@ class Prop(Sprite):
             elif self.data[0] == 'fruit':
                 img = self.world.overlay.items[16]
                 for pos in self.data[1]:
-                    display.blit(img, img.get_rect(center=rect.topleft+pos))
+                    display.blit(img, img.get_rect(center=rect.topleft+vec2(pos)))
 
             if tag:
                 r = tag.get_rect(midbottom=rect.midtop+vec2(0, -4*SCALE))
@@ -209,7 +209,7 @@ class Prop(Sprite):
 
                 # Exit
                 if self.incoming.inside:
-                    self.incoming.exit(self)
+                    self.incoming.exit()
                     self.incoming = None
                 # Enter
                 else:

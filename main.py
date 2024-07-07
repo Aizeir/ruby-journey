@@ -17,7 +17,7 @@ class Game:
         # Scenes
         self.world = None
         self.mainmenu = Mainmenu(self)
-        self.scene = self.mainmenu
+        self.scene = self.mainmenu      
 
         # Cursors
         pg.mouse.set_visible(0)

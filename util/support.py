@@ -149,20 +149,25 @@ def get_shadow(img, size):
         img.subsurface(0, 0, img.get_width(), img.get_height()-size)
 
 # outline (ui)
-def ui_outline(overlay, img, color=UI[1], corner=False, big=True, **k):
+def ui_outline(overlay, img, color=UI[1], corner=False, font=None, pad=None, bd=UI_SCALE, **k):
     if isinstance(img, str):
-        img, rect = textr(img, (overlay.font, overlay.fontbig)[big], UI[6], **k)
+        img, rect = textr(img, font or overlay.font30, UI[6], **k)
     else:
         img, rect = img, img.get_rect(**k)
         
     border = pg.mask.from_surface(img).to_surface(unsetcolor=(0,0,0,0),setcolor=color)
-    overlay.display.blit(border, rect.move(-TITLE_BD,0))
-    overlay.display.blit(border, rect.move(+TITLE_BD,0))
-    overlay.display.blit(border, rect.move(0,-TITLE_BD))
-    overlay.display.blit(border, rect.move(0,+TITLE_BD))
+    overlay.display.blit(border, rect.move(-bd,0))
+    overlay.display.blit(border, rect.move(+bd,0))
+    overlay.display.blit(border, rect.move(0,-bd))
+    overlay.display.blit(border, rect.move(0,+bd))
+    if pad:
+        overlay.display.blit(border, rect.move(-bd,+2*bd))
+        overlay.display.blit(border, rect.move(0,+2*bd))
+        overlay.display.blit(border, rect.move(+bd,+2*bd))
     if corner:
-        overlay.display.blit(border, rect.move(-TITLE_BD,-TITLE_BD))
-        overlay.display.blit(border, rect.move(+TITLE_BD,-TITLE_BD))
-        overlay.display.blit(border, rect.move(-TITLE_BD,+TITLE_BD))
-        overlay.display.blit(border, rect.move(+TITLE_BD,+TITLE_BD))
+        overlay.display.blit(border, rect.move(-bd,-bd))
+        overlay.display.blit(border, rect.move(+bd,-bd))
+        overlay.display.blit(border, rect.move(-bd,+bd))
+        overlay.display.blit(border, rect.move(+bd,+bd))
+    
     overlay.display.blit(img, rect)

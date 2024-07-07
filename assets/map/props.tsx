@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tileset version="1.10" tiledversion="1.10.2" name="props" tilewidth="64" tileheight="88" tilecount="16" columns="0">
+<tileset version="1.10" tiledversion="1.10.2" name="props" tilewidth="176" tileheight="88" tilecount="16" columns="0">
  <grid orientation="orthogonal" width="1" height="1"/>
  <tile id="0">
   <properties>
    <property name="name" value="house"/>
   </properties>
-  <image width="44" height="50" source="../props/house.png"/>
+  <image width="176" height="50" source="../props/house.png"/>
  </tile>
  <tile id="1">
   <properties>
@@ -35,7 +35,7 @@
   <properties>
    <property name="name" value="mine"/>
   </properties>
-  <image width="38" height="52" source="../props/mine.png"/>
+  <image width="152" height="52" source="../props/mine.png"/>
  </tile>
  <tile id="11">
   <properties>

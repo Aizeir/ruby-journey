@@ -119,10 +119,10 @@ class Queen(Entity):
         if x:
             self.side = ('L','R')[x>0]
 
-    def damage(self):
+    def damage(self, amount=1):
         if self.timers['dead'].active: return
         self.timers['damage'].activate()
-        self.health -= 1
+        self.health -= amount
         self.provoked = True
 
         # FX

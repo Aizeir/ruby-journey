@@ -43,7 +43,6 @@ UI = [
 ]
 TYPE_TIME = 50
 UI_SCALE = 4
-TITLE_BD = 4
 
 TOOLS = {3:'axe',4:'pickaxe',5:'lance',8:'fish rod',13:'hammer',14:'slingshot',15:"watering can"}
 TOOL_DURA = {3:60,4:36,5:36,8:36,13:24,14:-1,15:1}

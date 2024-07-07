@@ -1,9 +1,12 @@
 import pygame as pg, math
+from sprites.pnj import PNJ
+from util.pnj_data import PNJ_IDX
 from util.support import *
 
 
-panelx, panely = 75*UI_SCALE, 18*UI_SCALE
-panel_space = 8
+tradex, tradey, trade_space = 77*UI_SCALE, 23*UI_SCALE, UI_SCALE
+pnjx, pnjy, pnj_space = 77*UI_SCALE, 21*UI_SCALE, 4*UI_SCALE
+quest_space = 5*UI_SCALE
 maxtools = 5
 mmfloor = {WILD:2,MINES:4,DUNGEON:5}
 
@@ -19,9 +22,9 @@ class Overlay:
 
         # Font
         self.font = font("font.ttf", 20)
-        self.fontbig = font("font.ttf", 30)
-        self.fontsmall = font("font.ttf", 10)
-        self.fontshort = font("font.ttf", 15)
+        self.font30 = font("font.ttf", 30)
+        self.font10 = font("font.ttf", 10)
+        self.font15 = font("font.ttf", 15)
 
         # Pause menu
         self.pause = textr("Paused", self.font, UI[0],
@@ -41,12 +44,12 @@ class Overlay:
         self.dialog_panel = False
 
         # Trade panel
-        self.trade_imgs = load_tileset("ui/trade", (panelx, panely), UI_SCALE)
-        self.trade_rect = rectx((panelx, 4*panely), "midtop", (W/2,H*.35))
+        self.trade_imgs = load_tileset("ui/trade", (tradex, tradey), UI_SCALE)
+        self.trade_rect = rectx((tradex, 4*tradey), "midtop", (W/2,H*.3))
 
         # PNJ panel
-        self.pnj_imgs = load_tileset("ui/pnj", (panelx, panely), UI_SCALE)
-        self.pnj_rects = [rectx((panelx,panely),"midtop",(W/2, H*.35+y*(panely+panel_space))) for y in range(4)]
+        self.pnj_imgs = load_tileset("ui/pnj", (pnjx, pnjy), UI_SCALE)
+        self.pnj_rects = [rectx((pnjx,pnjy),"midtop",(W/2, H*.3+y*(pnjy+pnj_space))) for y in range(4)]
         
         # Dialog
         self.dialog = None
@@ -54,70 +57,62 @@ class Overlay:
         self.dialog_time = None
         self.dialog_last = None
         self.dialog_choices = {}
-        self.faces = load_folder_dict("faces", load, 4)
+        self.faces = load_folder_dict("faces", load, UI_SCALE)
         self.faces_mini = load_folder_dict("faces", load, 3)
-
-        # arrows
-        arrow, arrow2 = load_tileset("ui/arrow", (10*4,7*4), 4)
-        self.arrow =  [pg.transform.rotate(arrow,90),pg.transform.rotate(arrow,-90), arrow, pg.transform.flip(arrow,0,1)]
-        self.arrow2 = [pg.transform.rotate(arrow2,90),pg.transform.rotate(arrow2,-90), arrow2, pg.transform.flip(arrow2,0,1)]
+        self.dialog_arrows = load_tileset("ui/dialog_arrow", (7*UI_SCALE,8*UI_SCALE), UI_SCALE)
 
         # Inventory (+items)
-        self.items = load_tileset("tilesets/items", (64,64), 4)
+        self.items = world.items_imgs
         self.inventory_img = load("ui/inventory", scale=UI_SCALE)
-        self.inventory_rect = self.inventory_img.get_rect(bottomleft=(32,H-64))
+        self.inventory_rect = self.inventory_img.get_rect(bottomleft=(6*UI_SCALE,H-6*UI_SCALE))
         self.inv_idx = 0
 
         # tip
-        self.tip_img = load("ui/tip", scale=UI_SCALE)
+        tip_img = load("ui/tip", scale=UI_SCALE)
+        self.tip_imgs = [tip_img, pg.transform.flip(tip_img, 1,0)]
 
         # Tools
-        self.tools_imgs = load_tileset("ui/tool", (20*UI_SCALE,20*UI_SCALE), UI_SCALE)
-        self.tab_imgs = load_tileset("ui/tab", (21*UI_SCALE,12*UI_SCALE), UI_SCALE)
+        self.tab_imgs = load_tileset("ui/tab", (23*UI_SCALE,12*UI_SCALE), UI_SCALE)
         self.tool_limit_img = load("ui/tool_limit", scale=UI_SCALE)
-        self.tool_rects = [rectx(self.tools_imgs[0].get_size(), "bottomright", vec2(W-48, H-80-(self.tools_imgs[0].get_height()+UI_SCALE)*y)) for y in range(maxtools)]
-        
-        def tool_switch():
-            sounds.switch.play()
-            self.player.tool = (self.player.tool+1)%len(self.player.tools)
-        self.tab_press = Timer(150, tool_switch)
+        self.tool_img = load("ui/tool", scale=1)
+        self.tool_rects = []
+        self.tool_imgs = []
+        y = 0
+        for h in (20,18,21,24,23):
+            self.tool_imgs.append(load(self.tool_img.subsurface(0, y, 20, h), scale=UI_SCALE))
+            y += h
         
         # Heart (mines)
-        self.heart_imgs = load_tileset("ui/heart", (13*SCALE*2,11*SCALE*2), SCALE*2)
+        self.heart_imgs = load_tileset("ui/heart", (24*UI_SCALE,21*UI_SCALE), UI_SCALE)
 
         # Minimap
-        self.minimap_img, mask = load_tileset("ui/minimap", (UI_SCALE*48,UI_SCALE*48), UI_SCALE)
+        self.minimap_img, mask = load_tileset("ui/minimap_ui", (UI_SCALE*48,UI_SCALE*50), UI_SCALE)
         self.minimap_mask = pg.mask.from_surface(mask)
-        
-        def toggle_mm():
-            if self.panel == "mm":
-                sounds.panel.play()
-                self.panel_timer.activate(1)
-            else:
-                self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
-                self.open_panel("mm")
-        self.minimap_open_img = load_tileset("ui/mmopen", (11*UI_SCALE, 12*UI_SCALE), UI_SCALE)
-        self.minimap_press = Timer(150, toggle_mm)
-        
+        self.e_imgs = load_tileset("ui/e", (11*UI_SCALE, 13*UI_SCALE), UI_SCALE)
+        self.floors = {m:pg.Surface(vec2(surf.get_size())//MMSCALE) for m,surf in self.world.floors.items()}
+
+        self.minimap_floor_ts = load_tileset("ui/minimap_floor", size=(4*UI_SCALE,4*UI_SCALE), scale=UI_SCALE)
+        self.minimap_ts = load_tileset("ui/minimap", size=(6*UI_SCALE,6*UI_SCALE), scale=UI_SCALE)
+
+        # Minimap panel
         scale = int(UI_SCALE*2.5)
-        self.mmo_img, mask = load_tileset("ui/minimap", (scale*48,scale*48), scale)
+        self.mmo_img, mask = load_tileset("ui/minimap_ui", (scale*48,scale*50), scale)
         self.mmo_mask = pg.mask.from_surface(mask)
         self.minimap_rect = self.mmo_img.get_rect(center=(W/2,H/2))
 
         # Quest
-        self.quest_icon = load_tileset("ui/quest", (64,64), 4)
-        self.quest_rect = self.quest_icon[0].get_rect(topright=(W-48,32))
+        self.quest_icon = load_tileset("ui/quest", (16*UI_SCALE,17*UI_SCALE), UI_SCALE)
+        self.quest_rect = self.quest_icon[0].get_rect(topright=(W-6*UI_SCALE,6*UI_SCALE))
         self.quest_notif_trans = Transition(1000, callmid=True)
 
         self.quest_img = load("ui/questlist", scale=UI_SCALE)
-        self.quest_rects = [rectx(self.quest_img.get_size(),"midtop",(W/2, H*.35+y*(self.quest_img.get_height()+panel_space))) for y in range(len(self.world.pnjs))]
+        self.quest_img = [self.quest_img, pg.transform.flip(self.quest_img,1,0)]
+        self.quest_face = load("ui/questface", scale=UI_SCALE)
         self.noquest_img = load("ui/noquest", scale=UI_SCALE//2)
+        self.quest_heads = load_tileset("ui/heads", (9*UI_SCALE,10*UI_SCALE), UI_SCALE)
 
         # Interact
-        self.interact_imgs = load_tileset("ui/interact", (64*UI_SCALE,18*UI_SCALE), UI_SCALE)
-        
-        def interact(): self.player.interact.interact()
-        self.interact_press = Timer(150, interact)
+        self.interact_imgs = load_tileset("ui/interact", (64*UI_SCALE,20*UI_SCALE), UI_SCALE)
 
     def busy(self):
         return self.dialog or self.panel
@@ -151,7 +146,7 @@ class Overlay:
             if e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
                 self.event_dialog_click()
             # space - trigger
-            if e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
+            elif e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
                 sounds.press.play()
                 self.dialog_trigger()
         
@@ -172,11 +167,10 @@ class Overlay:
         # Tools
         if e.type == pg.KEYDOWN and e.key == pg.K_TAB and self.player.tools:
             sounds.press.play()
-            self.tab_press.activate()
         elif e.type == pg.KEYUP and e.key == pg.K_TAB and self.player.tools:
             sounds.release.play()
-            self.tab_press.callback()
-            self.tab_press.deactivate()
+            sounds.switch.play()
+            self.player.tool = (self.player.tool+1)%len(self.player.tools)
 
         # Inventory
         inv_len = len(self.player.inventory.items)
@@ -185,6 +179,15 @@ class Overlay:
             if inv_idx != self.inv_idx:
                 sounds.switch.play()
                 self.inv_idx = inv_idx
+
+        # Drop blick
+        elif e.type == pg.MOUSEBUTTONDOWN and e.button == 1 and self.inventory_rect.collidepoint(self.world.mouse_pos):
+            for i, item in enumerate(list(self.player.inventory.items)[self.inv_idx:self.inv_idx+5]):
+                pos = self.inventory_rect.topleft+vec2(4*UI_SCALE, 4*UI_SCALE+i*18*UI_SCALE)
+                if pg.Rect(pos, (self.items[item].get_size())).collidepoint(self.world.mouse_pos):
+                    amount = self.player.inventory.items[item]
+                    self.player.inventory.remove(item, amount)
+                    self.world.drop_item(item, amount)
 
         # Quest
         if self.quest_rect.collidepoint(self.world.mouse_pos) and e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
@@ -197,11 +200,14 @@ class Overlay:
         # Minimap
         elif e.type == pg.KEYDOWN and e.key == pg.K_e:
             sounds.press.play()
-            self.minimap_press.activate()
         elif e.type == pg.KEYUP and e.key == pg.K_e:
             sounds.press.play()
-            self.minimap_press.callback()
-            self.minimap_press.deactivate()
+            if self.panel == "mm":
+                sounds.panel.play()
+                self.panel_timer.activate(1)
+            else:
+                self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
+                self.open_panel("mm")
 
     def event_dialog_click(self):
         # On dialog
@@ -223,7 +229,7 @@ class Overlay:
 
         # Inside - Trade
         if self.trade_rect.collidepoint(self.world.mouse_pos):
-            i = (self.world.mouse_pos.y - self.trade_rect.y) // panely
+            i = (self.world.mouse_pos.y - self.trade_rect.y) // tradey
             if i < self.pnj.friend:
                 self.pnj.trade(int(i))
                 # sound §?
@@ -319,6 +325,7 @@ class Overlay:
             self.dialog[2] = dialogs
 
     def dialog_trigger(self, trigger=-1):
+        if not self.dialog: return
         # Typing
         if (pg.time.get_ticks()-self.dialog_time)//TYPE_TIME < len(self.dialog[1]):
             self.dialog_time = pg.time.get_ticks() - TYPE_TIME * len(self.dialog[1])
@@ -363,33 +370,33 @@ class Overlay:
             i1,a1,i2,a2, _ = data
             
             # Rect
-            y = i*panely + offset_y
-            rect = pg.Rect(self.trade_rect.x,self.trade_rect.y+y,panelx,panely)
+            y = i*(tradey+trade_space) + offset_y
+            rect = pg.Rect(self.trade_rect.x,self.trade_rect.y+y,tradex,tradey)
             
-            idx = i*3 + (i<f) + (i<f and self.player.inventory.has(i1,a1) and rect.collidepoint(self.world.mouse_pos))
-            self.display.blit(self.trade_imgs[idx], rect)
+            # image
+            hover = rect.collidepoint(self.world.mouse_pos) and i<f
+            press = pg.mouse.get_pressed()[0] and hover
+            self.display.blit(self.trade_imgs[(i<f)+hover+press], rect)
 
-            # Indications
-            self.display.blit(*textr(("-",">")[i<f], self.font, UI[0],
-                center=(self.trade_rect.x+panelx/2,self.trade_rect.y+y+panely/2)))
-            
             # Items
-            for item, amount, x in ((i1,a1,1),(i2,a2,3)):
+            for item, amount, x in ((i1,a1,15*UI_SCALE),(i2,a2,tradex-15*UI_SCALE)):
                 # item
                 icon = self.items[item]
                 rect = icon.get_rect(center=(
-                    self.trade_rect.x+panelx*x/4,
-                    self.trade_rect.y+y+panely/2)
+                    self.trade_rect.x+x,
+                    self.trade_rect.y+y+tradey/2)
                 )
                 self.display.blit(icon, rect)
 
                 # amount
-                if i<f: self.display.blit(*textr(str(amount),self.font,UI[0],
-                    midbottom=rect.midbottom))
+                if i<f:
+                    ui_outline(self, str(amount), bd=4, font=self.font,
+                        midbottom=rect.midbottom)
                 
         # Title
         ui_outline(self, self.pnj.name,
-            midbottom=self.trade_rect.midtop+vec2(0,offset_y))
+            midbottom=self.trade_rect.midtop+vec2(0,offset_y-2*UI_SCALE),
+            corner=1, pad=1)
       
     def draw_pnj(self):
         if self.panel != "pnj": return
@@ -404,8 +411,8 @@ class Overlay:
         
             # image
             hover = rect.collidepoint(self.world.mouse_pos)
-            idx = ((i!=0) + (i==len(self.pnj.options)-1))*2+hover
-            self.display.blit(self.pnj_imgs[idx], rect)
+            press = pg.mouse.get_pressed()[0] and hover
+            self.display.blit(self.pnj_imgs[hover+press], rect)
 
             # texts
             text = self.pnj.options[i].upper()
@@ -414,17 +421,19 @@ class Overlay:
     
         # Title
         ui_outline(self, self.pnj.name,
-            midbottom=self.pnj_rects[0].move(0,offset_y).midtop)
+            midbottom=self.pnj_rects[0].move(0,offset_y-2*UI_SCALE).midtop,
+            corner=1, pad=1)
         
     def draw_quest(self):
         # Icon
         active = self.panel=='quest' and not self.panel_timer.backwards
         hover = self.quest_rect.collidepoint(self.world.mouse_pos) and not active
-        self.display.blit(self.quest_icon[active+2*hover], self.quest_rect)
+        press = pg.mouse.get_pressed()[0] and hover
+        self.display.blit(self.quest_icon[hover+press+2*active], self.quest_rect)
         
         # No Quest
         if hover and not self.player.quests:
-            self.display.blit(self.noquest_img, self.noquest_img.get_rect(midright=self.quest_rect.midleft+vec2(-UI_SCALE, 0)))
+            self.display.blit(self.noquest_img, self.noquest_img.get_rect(midright=self.quest_rect.midleft+vec2(-2*UI_SCALE, 0)))
 
         # Quest notif
         self.quest_notif_trans.update()
@@ -432,8 +441,17 @@ class Overlay:
         if x:
             # title, desc, icon
             pnj = self.world.pnjs[self.quest_notif_trans.pnj]
-            rect = self.quest_img.get_rect(topright=self.quest_rect.topleft+vec2(0,-UI_SCALE))
-            self.draw_quest_img(rect, pnj)
+            quest = pnj.data['quest'][pnj.quest_idx][1]
+            rect = self.quest_img[0].get_rect(topright=self.quest_rect.topleft+vec2(0,-2*UI_SCALE))
+            
+            # image
+            self.display.blit(self.quest_img[0], rect)
+            # text
+            self.display.blit(*textr(quest[2],self.font15,UI[7],
+                topright=rect.topright+vec2(-10*UI_SCALE,5*UI_SCALE)))
+            # desc
+            self.display.blit(*textr(quest[3],self.font10,UI[7],
+                topright=rect.topright+vec2(-10*UI_SCALE,11*UI_SCALE)))
 
     def draw_quest_panel(self):
         if self.panel != "quest": return
@@ -442,33 +460,45 @@ class Overlay:
         offset_y = H * (1-self.panel_timer.percent())
 
         # Quests
-        for i, rect in enumerate(self.quest_rects[:len(self.player.quests)]):
-            self.draw_quest_img(
-                rect.move(0,offset_y),
-                self.world.pnjs[self.player.quests[i]]
-            )
-    
+        for i, pnj_name in enumerate(self.player.quests):
+            # Data + rect
+            pnj = self.world.pnjs[pnj_name]
+            quest = pnj.data['quest'][pnj.quest_idx][1]
+            flip = i%2!=0
+            rect = self.quest_img[0].get_rect(midtop=(W/2-(-1)**flip*20*UI_SCALE, H*.35+i*(self.quest_img[0].get_height()+quest_space)+offset_y+2*UI_SCALE))
+            
+            # image
+            self.display.blit(self.quest_img[flip], rect)
+
+            if flip:
+                # text
+                self.display.blit(*textr(quest[2],self.font15,UI[7],
+                    topleft=rect.topleft+vec2(14*UI_SCALE,5*UI_SCALE)))
+                # desc
+                self.display.blit(*textr(quest[3],self.font10,UI[7],
+                    topleft=rect.topleft+vec2(11*UI_SCALE,11*UI_SCALE)))
+                # icon
+                r = self.quest_face.get_rect(midright=rect.midleft+vec2(-4*UI_SCALE,0))
+            else:
+                # text
+                self.display.blit(*textr(quest[2],self.font15,UI[7],
+                    topright=rect.topright+vec2(-14*UI_SCALE,5*UI_SCALE)))
+                # desc
+                self.display.blit(*textr(quest[3],self.font10,UI[7],
+                    topright=rect.topright+vec2(-11*UI_SCALE,11*UI_SCALE)))
+                # icon
+                r = self.quest_face.get_rect(midleft=rect.midright+vec2(4*UI_SCALE,0))
+                
+            # icon
+            self.display.blit(self.quest_face, r)
+
+            icon = pg.transform.scale2x(self.quest_heads[PNJ_IDX.index(pnj.name)])
+            self.display.blit(icon, icon.get_rect(center=r.center))
+
         # Title
-        ui_outline(self, f"Quests ({len(self.player.quests)})", 
-            midbottom=self.quest_rects[0].move(0,offset_y).midtop)
-
-    def draw_quest_img(self, rect, pnj):
-        # image
-        self.display.blit(self.quest_img, rect)
-
-        # text
-        quest = pnj.data['quest'][pnj.quest_idx][1]
-        self.display.blit(*textr(quest[2],self.font,UI[7],
-            topleft=rect.topleft+vec2(20*UI_SCALE,4*UI_SCALE-2)))
-        
-        # desc
-        self.display.blit(*textr(quest[3],self.fontsmall,UI[7],
-            topleft=rect.topleft+vec2(20*UI_SCALE,11*UI_SCALE-2)))
-        
-        # icon
-        icon = load(self.world.mm2[pnj.mm], scale=3)
-        self.display.blit(icon, icon.get_rect(
-            topleft=rect.topleft+vec2(-UI_SCALE-2,2*UI_SCALE)))
+        ui_outline(self, f"Quests ({len(self.player.quests)})",
+            midbottom=(W/2, H*.35+offset_y-2*UI_SCALE),
+            corner=1, pad=1)
 
     def draw_dialog(self):
         # Update values
@@ -534,16 +564,16 @@ class Overlay:
             name = self.dialog[0].lower() if self.dialog[0] != 'You' else 'player'
             ui_outline(self, self.faces[name], midbottom=rect.midtop)
             # title
-            ui_outline(self, self.dialog[0], big=False, center=rect.midtop)
+            ui_outline(self, self.dialog[0], font=self.font, center=rect.midtop)
         # Face (panel)
         elif self.dialog[0] and dialog_end:
             # pnj
             if self.dialog[0] != 'You':
                 name = self.dialog[0].lower()
-                ui_outline(self, self.faces_mini[name], big=False, bottomleft=rect.topleft+vec2(16,0))
+                ui_outline(self, self.faces_mini[name], font=self.font, bottomleft=rect.topleft+vec2(16,0))
             # player
             else:
-                ui_outline(self, self.faces_mini['player'], big=False, bottomright=rect.topright+vec2(-16,0))
+                ui_outline(self, self.faces_mini['player'], font=self.font, bottomright=rect.topright+vec2(-16,0))
 
         # Hover (panel)
         if self.dialog_panel and (self.dialog[2] or not dialog_end) and rect.collidepoint(self.world.mouse_pos):
@@ -577,22 +607,20 @@ class Overlay:
         # Arrow
         #  next
         if dialog_end and not isinstance(self.dialog[2],dict) and not self.dialog_panel:
-            self.display.blit(self.arrow2[1], self.arrow2[1].get_rect(center=rect.midbottom))
+            self.display.blit(self.dialog_arrows[1], self.dialog_arrows[1].get_rect(center=rect.midbottom))
         #  skip
         elif not dialog_end and not self.dialog_panel:
-            self.display.blit(self.arrow2[3], self.arrow2[3].get_rect(center=rect.midbottom))
+            self.display.blit(self.dialog_arrows[0], self.dialog_arrows[0].get_rect(center=rect.midbottom))
 
     def draw_inventory(self):
         if not self.player.inventory.items: return
-        margin = 8
-        size = 64+2*margin
 
         # Image
         self.display.blit(self.inventory_img, self.inventory_rect)
          
         # Items
         for i, item in enumerate(list(self.player.inventory.items)[self.inv_idx:self.inv_idx+5]):
-            pos = self.inventory_rect.topleft+vec2(margin, i*size+margin)
+            pos = self.inventory_rect.topleft+vec2(4*UI_SCALE, 4*UI_SCALE+i*18*UI_SCALE)
             r = pg.Rect(pos, (self.items[item].get_size()))
             hover = r.collidepoint(self.world.mouse_pos)
 
@@ -603,82 +631,77 @@ class Overlay:
                 self.display.blit(self.items[item], pos)
                 
             # amount
+            """ui_outline(self, str(self.player.inventory.items[item]), font=self.font,
+                topleft=pos+vec2(7*UI_SCALE, 6*UI_SCALE))"""
             self.display.blit(*textr(str(self.player.inventory.items[item]), self.font, UI[7],
-                center=pos+vec2(size/2, size/2)))
+                topleft=pos+vec2(7*UI_SCALE, 6*UI_SCALE)))
             
-            # tip §
+            # tip
             if hover:
-                self.draw_tip(r, item, self.player.inventory.items[item])
+                r.right = self.inventory_rect.right
+                self.draw_tip(r, item)
 
-        # Arrows
-        if len(self.player.inventory.items) > 5:
-            off = vec2(0,math.sin(pg.time.get_ticks()/100)*4)
-            # up
-            if self.inv_idx != 0:
-                self.display.blit(self.arrow[2], self.arrow[2].get_rect(center=self.inventory_rect.midtop+off))
-            # down
-            if self.inv_idx != len(self.player.inventory.items) - 5:
-                self.display.blit(self.arrow[3], self.arrow[3].get_rect(center=self.inventory_rect.midbottom+off))
-
-    def draw_tip(self, slot, item, x, tool=False):
+    def draw_tip(self, slot, item, tool=False):
         # Rect
         if tool:
-            rect = self.tip_img.get_rect(midright=slot.midleft+vec2(-2*UI_SCALE,0))
+            rect = self.tip_imgs[0].get_rect(midright=slot.midleft+vec2(-2*UI_SCALE,0))
         else:
-            rect = self.tip_img.get_rect(midleft=slot.midright+vec2(4*UI_SCALE,0))
-        self.display.blit(self.tip_img, rect)
+            rect = self.tip_imgs[0].get_rect(midleft=slot.midright+vec2(2*UI_SCALE,0))
+        self.display.blit(self.tip_imgs[not tool], rect)
 
         # Item
-        self.display.blit(*textr(f"{ITEMNAMES[item]}", self.font, UI[7],
-            topleft=rect.topleft+vec2(9,3)*UI_SCALE))
-        
-        # Amount
-        if not (tool and "-" in x):
-            self.display.blit(*textr(f"[{x}]", self.font, UI[7],
-                topright=rect.topright+vec2(-3,3)*UI_SCALE))
+        self.display.blit(*textr(f"{ITEMNAMES[item]}", self.font15, UI[7],
+            topleft=rect.topleft+vec2(10,4)*UI_SCALE))
 
         # Tip
-        for i, line in enumerate(ITEMS[ITEMNAMES[item]].split("\n")):
-            self.display.blit(*textr(line, self.fontsmall, UI[7],
-                midtop=rect.midtop+vec2(0,12*UI_SCALE + 20*i)))
+        self.display.blit(*textr(ITEMS[ITEMNAMES[item]].split("\n")[0], self.font10, UI[7],
+            topleft=rect.topleft+vec2(10,11.5)*UI_SCALE))
 
     def draw_tools(self):
         plr = self.player
         if not plr.tools: return
-        self.tab_press.update()
 
         # Variables
         length = min(len(self.player.tools),maxtools)
         
         # Draw tools
+        tip = None
+        self.tool_rects.clear()
         for i in range(length):
             # tool data
             tool, data = plr.tools[(plr.tool+i)%len(self.player.tools)]
             durastr = str(math.ceil(data*100/TOOL_DURA[tool]) if data!=-1 else -1)+"%"
-            
-            # rect
-            rect = self.tool_rects[i]
     
             # image
+            if i==0:         img = self.tool_imgs[3]
+            elif length==2:  img = self.tool_imgs[4]
+            elif i==1:       img = self.tool_imgs[2]
+            elif i!=length-1:img = self.tool_imgs[1]
+            else:            img = self.tool_imgs[0]
+
+            # rect
+            bottom = H-(6 + (i>0)*(24+2) + (i>1)*21 + max(0,i-2)*18)*UI_SCALE
+            rect = img.get_rect(bottomright=(W-6*UI_SCALE,bottom))
+            self.tool_rects.append(rect)
             hover = rect.collidepoint(self.world.mouse_pos)
-            img = self.tools_imgs[(i!=0)]
-            self.display.blit(img, rect)
 
             # tip
-            if hover: self.draw_tip(rect, tool, durastr, True)
+            if hover: tip = (rect, tool)
+
+            # draw
+            self.display.blit(img, rect)
             
             # dura
-            elif TOOL_DURA[tool] != -1: self.display.blit(*textr(durastr, self.font, UI[7],
+            if not hover and TOOL_DURA[tool] != -1: self.display.blit(*textr(durastr, self.font, UI[7],
                 midright=rect.midleft+vec2(-4,0)))
 
-            # image
+            # tool image
             image = self.items[tool]
             r = image.get_rect(center=rect.center)
-            # item
-            if hover:
-                ui_outline(self, image, corner=True, color=UI[7], topleft=r.topleft)
-            else:
-                self.display.blit(image, r)
+            # outline
+            if hover: ui_outline(self, image, corner=True, color=UI[7], topleft=r.topleft)
+            # draw
+            else: self.display.blit(image, r)
 
         # Tool limit
         if len(self.player.tools) > maxtools:
@@ -690,55 +713,57 @@ class Overlay:
                 topleft=r.topleft+vec2(9*UI_SCALE,2*UI_SCALE+1)))
 
         # TAB
-        r = self.tab_imgs[0].get_rect(midtop=(rect.centerx, self.tool_rects[0].bottom+1*UI_SCALE))
-        self.display.blit(self.tab_imgs[self.tab_press.active], r)
+        rect = self.tool_rects[0]
+        r = self.tab_imgs[0].get_rect(midright=(rect.x-2*UI_SCALE, rect.y-1*UI_SCALE))
+        self.display.blit(self.tab_imgs[2*pg.key.get_pressed()[pg.K_TAB]], r)
+
+        # Tip
+        if tip:
+            self.draw_tip(*tip, True)
 
     def draw_interact(self):
         if not (self.player.timers['interact'].active or self.player.interact): return
-        self.interact_press.update()
 
         # Rect
         rect = self.interact_imgs[0].get_rect(midbottom=(W/2, H+64-112*self.player.timers['interact'].percent()))
-        pressed = self.interact_press.active
-        self.display.blit(self.interact_imgs[pressed], rect)
+        hover = rect.collidepoint(self.world.mouse_pos)
+        press = pg.key.get_pressed()[pg.K_SPACE] and not hover
+        self.display.blit(self.interact_imgs[hover+press*2], rect)
 
         # Text
         if self.player.interact:
-            self.interact_text = self.font.render(self.player.interact.name, False, UI[7])
-        self.display.blit(self.interact_text, self.interact_text.get_rect(midtop=rect.midtop+vec2(2,(8+pressed)*UI_SCALE+1)))
+            self.interact_text = self.font.render(self.player.interact.name, False, UI[2])
+        self.display.blit(self.interact_text, self.interact_text.get_rect(midtop=rect.midtop+vec2(2,(9+press*2)*UI_SCALE)))
 
     def draw_health(self):
-        if self.player.map not in (MINES,DUNGEON): return
-        heart = self.heart_imgs[4]#self.heart_imgs[self.player.health]
-        self.display.blit(heart, heart.get_rect(midtop=(W/2,H*.1)))
+        #if self.player.map not in (MINES,DUNGEON): return §
+        heart = self.heart_imgs[min(self.player.health, len(self.heart_imgs)-1)]
+        self.display.blit(heart, heart.get_rect(midtop=(66*UI_SCALE,20*UI_SCALE)))
 
     def draw_minimap(self):
-        self.minimap_press.update()
-
         # Setup minimap surf
         size = self.minimap_img.get_width()
         mm = pg.Surface((size,size))
-        mm.fill(self.world.mm[mmfloor[self.player.map]].get_at((0,0)))
+        mm.fill(self.minimap_floor_ts[mmfloor[self.player.map]].get_at((0,0)))
         
         # Floor
         offset = vec2(self.player.rect.center)//MMSCALE-vec2(size,size)/2
-        floor = self.world.floors_mm[self.player.map]
-        mm.blit(floor, -offset)
+        mm.blit(self.floors[self.player.map], -offset)
 
         # Sprites
         for s in self.world.mms:
             if s.map != self.player.map: continue
-            mm.blit(self.world.mm2[s.mm], self.world.mm2[s.mm].get_rect(center=s.pos//MMSCALE-offset))
+            mm.blit(self.minimap_ts[s.mm], self.minimap_ts[s.mm].get_rect(center=s.pos//MMSCALE-offset))
         
         # Drawing to display
-        pos = (24, 24)
+        pos = (4*UI_SCALE, 4*UI_SCALE)
         rect = self.minimap_img.get_rect(topleft=pos)
         self.display.blit(self.minimap_mask.to_surface(pg.Surface((size,size)), setsurface=mm,unsetcolor=(0,0,0,0)), pos)
         self.display.blit(self.minimap_img, rect)
 
         # Open button
-        r = self.minimap_open_img[0].get_rect(center=rect.midbottom+vec2(2*UI_SCALE, 0))
-        self.display.blit(self.minimap_open_img[self.minimap_press.active], r)
+        r = self.e_imgs[0].get_rect(center=rect.midbottom+vec2(2*UI_SCALE, 0))
+        self.display.blit(self.e_imgs[2*pg.key.get_pressed()[pg.K_e]], r)
     
     def draw_mm_panel(self):
         if self.panel != "mm": return
@@ -749,17 +774,18 @@ class Overlay:
         # Setup minimap surf
         size = self.mmo_img.get_width()
         mm = pg.Surface((size,size))
-        mm.fill(self.world.mm[mmfloor[self.player.map]].get_at((0,0)))
+        mm.fill(self.minimap_floor_ts[mmfloor[self.player.map]].get_at((0,0)))
         
         # Floor
         offset = vec2(self.player.rect.center)//MMSCALE-vec2(size,size)/2
-        floor = self.world.floors_mm[self.player.map]
+        floor = self.floors[self.player.map]
         mm.blit(floor, -offset)
 
         # Sprites
         for s in self.world.mms:
             if s.map != self.player.map: continue
-            mm.blit(self.world.mm2[s.mm], self.world.mm2[s.mm].get_rect(center=s.pos//MMSCALE-offset))
+            if isinstance(s, PNJ) and s.inside: continue
+            mm.blit(self.minimap_ts[s.mm], self.minimap_ts[s.mm].get_rect(center=s.pos//MMSCALE-offset))
         
         # Drawing to display
         self.display.blit(self.mmo_mask.to_surface(pg.Surface((size,size)), setsurface=mm,unsetcolor=(0,0,0,0)), self.minimap_rect.topleft+vec2(0,offset_y))
@@ -784,8 +810,6 @@ class Overlay:
         if self.panel == "trade" and self.trade_rect.collidepoint(pos):
             return 0
         if self.panel == "pnj" and any([r.collidepoint(pos) for r in self.pnj_rects[:len(self.pnj.options)]]):
-            return 0
-        if self.panel == "quest" and any([r.collidepoint(pos) for r in self.quest_rects[:len(self.world.pnjs)]]):
             return 0
         if self.panel == "mm" and self.minimap_rect.collidepoint(pos):
             return 0

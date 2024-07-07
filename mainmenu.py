@@ -98,7 +98,7 @@ class Mainmenu:
         # BEGIN SCREEN
         self.begin_tale = [textr(text, self.font, UI[6],
             center=(W/2,H*.9+i*128)) for i,text in enumerate([
-            """"That's it. A ruby.",
+            """"§That's it. A ruby.",
             "I need it for my collection of rare items.",
             "According to my sources",
             "someone has one in this hamlet.",

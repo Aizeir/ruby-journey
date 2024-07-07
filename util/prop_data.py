@@ -20,7 +20,7 @@ PROP_DATA = {
         "health":50,
         "hitbox":(58*SCALE,56*SCALE),
         "tool":3,
-        "mm": 11,
+        "mm": 13,
         "shadow": SHB,
     },
     "tent": {
@@ -31,35 +31,35 @@ PROP_DATA = {
     "mine": {
         "teleport": "ladder",
         "hitbox":(36*SCALE,21*SCALE),
-        "mm": 9,
+        "mm": 11,
         "shadow": SHB,
     },
     "ladder": {
         "teleport": "mine",
         "hitbox":(13*SCALE,3*SCALE),
-        "mm": 7,
+        "mm": 9,
     },
     "ladder2": {
         "teleport": "hole",
         "hitbox":(13*SCALE,3*SCALE),
-        "mm": 7,
+        "mm": 9,
     },
     "stair": {
         "teleport": "stair2",
         "hitbox":(14*SCALE,14*SCALE),
-        "mm": 6,
+        "mm": 8,
     },
     "stair2": {
         "teleport": "stair",
         "hitbox":(14*SCALE,11*SCALE),
-        "mm": 6,
+        "mm": 8,
         "shadow": SHS,
     },
     "hole": {
         "teleport": "ladder2",
         "hitbox":(32*SCALE,32*SCALE),
         'small':1,
-        "mm": 7,
+        "mm": 9,
     },
 
     "stone": {
@@ -117,7 +117,7 @@ PROP_DATA = {
     "fruit_tree": {
         "hitbox":(9*SCALE,9*SCALE),
         "shadow": SHB,
-        "mm": 13,
+        "mm": 12,
     },
     "trunk": {
         "damage":[0],

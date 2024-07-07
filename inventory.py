@@ -9,8 +9,10 @@ class Inventory:
     def add(self, item, amount=1):
         if item in self.items:
             self.items[item] += amount
-        else:
+        elif len(self.items) < 5:
             self.items[item] = amount
+        else:
+            return (item, amount)
     
     def has(self, item, amount=1):
         return self.items.get(item, 0) >= amount

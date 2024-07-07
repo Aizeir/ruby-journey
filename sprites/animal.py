@@ -97,7 +97,7 @@ class Animal(Entity):
         if x:
             self.side = ('L','R')[x>0]
             
-    def damage(self, x):
+    def damage(self, x=1):
         self.health -= x
         self.timers['damage'].activate()
         

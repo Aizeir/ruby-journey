@@ -47,7 +47,7 @@ class Player(Entity):
         # Random timers
         self.timers['fishing'] = Timer(2000)
         self.timers['walk'] = Timer(400)
-    
+
     def move(self, dt):
         # Normalize direction
         if self.direction.magnitude() > 0:
@@ -148,15 +148,17 @@ class Player(Entity):
             o = self.world.overlay
             if e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
                 sounds.press.play()
-                o.interact_press.activate()
             elif e.type == pg.KEYUP and e.key == pg.K_SPACE:
                 sounds.release.play()
-                o.interact_press.callback()
-                o.interact_press.deactivate()
+                self.interact.interact()
     
         # Tool
         if e.type == pg.MOUSEBUTTONDOWN and e.button == 1 and not self.timers['tool'].active and self.tools and self.world.overlay.cursor:
             self.use_tool()
+
+        # §§§
+        if e.type == pg.KEYDOWN and e.key == pg.K_m:
+            self.additem(randint(0,len(ITEMNAMES)-1))
     
     def damage(self, queen=False):
         if self.timers['dead'].active: return
@@ -209,28 +211,23 @@ class Player(Entity):
     def check_interact(self):
         old = self.interact
         self.interact = None
-        inter_dist = None
+        interact_dist = None
         if self.world.overlay.busy(): return
         
-        # PNJs
-        for pnj in self.world.filtered(self.world.pnjs.values()):
-            if pnj.name == 'explorer' and not self.world.ended and self.has(1):continue
-            dist = pnj.pos.distance_to(self.pos)
-            if dist <= TS*2 and not(inter_dist!=None and dist>inter_dist):
-                self.interact = pnj
-                inter_dist = dist
+        for obj in self.world.filtered(self.world.interacts):
+            # Explorer: can't at end
+            if obj.name == 'explorer' and not self.world.ended and self.has(1):continue
             
-        # Interact props
-        for prop in self.world.filtered(self.world.interacts):
-            dist = prop.pos.distance_to(self.pos)
-            if dist <= TS*2 and not(inter_dist!=None and dist>inter_dist):
-                self.interact = prop
-                inter_dist = dist
+            # Check interact
+            dist = obj.pos.distance_to(self.pos)
+            if dist <= TS*2 and not(interact_dist!=None and dist>interact_dist):
+                self.interact = obj
+                interact_dist = dist
 
-            # wider range for boat
-            elif prop.name=='boat' and dist <= TS*3 and not(inter_dist!=None and dist>inter_dist):
-                self.interact = prop
-                inter_dist = dist
+            # Boat: Wider range
+            elif obj.name == 'boat' and dist <= TS*3 and not(interact_dist!=None and dist>interact_dist):
+                self.interact = obj
+                interact_dist = dist
         
         # Fadein interact ui
         self.timers['interact'].activate_var(self.interact, old)
@@ -342,12 +339,20 @@ class Player(Entity):
                     self.damage_pc(self.break_img)
                 sounds.broken.play()
 
+    def can_additem(self, item, amount):
+        if item in TOOLS: return True
+        if len(self.inventory.items) < 5: return True
+        if item in self.inventory.items: return True
+
     def additem(self, item, amount=1):
         if item in TOOLS:
             for _ in range(amount):
                 self.tools.append([item, TOOL_DURA[item]])
         else:
-            self.inventory.add(item, amount)
+            drop = self.inventory.add(item, amount)
+            if drop:
+                self.world.drop_item(*drop)
+                return
 
         # End
         if item == 1 and not self.world.ended:

@@ -6,6 +6,7 @@ from pytmx.util_pygame import load_pygame
 from overlay import Overlay
 from player import Player
 from sprites.animal import Animal
+from sprites.itemdrop import ItemDrop
 from sprites.pnj import PNJ
 from sprites.prop import Prop
 from sprites.queen import Queen
@@ -19,14 +20,18 @@ class World:
     def __init__(self, game, world_data):
         self.game = game
         self.display = game.display
-        self.offset = vec2(0,0)
         self.paused = False 
         self.timers = {}
         self.new = not world_data
 
+        # Offset
+        self.offset = vec2(0,0)
+
         # Day night
-        self.daydura = 10#60¤
+        self.day_duration = 30#60¤
+        self.time = world_data.get('time',self.day_duration)
         self.daynight = self._daynight_compute()
+        self.night = lambda: self.daynight > 128
 
         # cutscene
         self.cutscene = None
@@ -37,7 +42,8 @@ class World:
 
         # Tools
         self.tools = {n: [x,pg.transform.rotate(pg.transform.flip(x,1,0), 180),pg.transform.rotate(x, -90),pg.transform.rotate(pg.transform.flip(x,1,0), 90)] for n,x in load_folder_dict("tools", load, SCALE).items()}
-
+        self.items_imgs = load_tileset("tilesets/items", (16*UI_SCALE,16*UI_SCALE), UI_SCALE)
+        
         # Sprites
         self.sprites = pg.sprite.Group()
         self.collides = pg.sprite.Group()
@@ -49,9 +55,11 @@ class World:
         self.animals_queen = pg.sprite.Group()
         self.interacts = pg.sprite.Group()
         self.mms = pg.sprite.Group()
-        self.apnjs = (self.all_collide, self.mms)
+        self.itemdrops = pg.sprite.Group()
+        self.apnjs = (self.all_collide, self.mms, self.interacts)
         self.aprops = (self.all_collide, self.props)
         self.aanimals = (self.all_collide, self.animals, self.animals_queen)
+        self.adrops = (self.sprites, self.itemdrops)
         self.pnjs = {}
         # - optimization
         self.collides_filter = ()
@@ -226,11 +234,6 @@ class World:
         self.water_pcs = []
         self.water_pcs_idx = 0
 
-        # Minimap
-        self.floors_mm = {m:pg.Surface(vec2(surf.get_size())//MMSCALE) for m,surf in self.floors.items()}
-        self.mm = load_tileset("tilesets/minimap", scale=MM//4, size=(MM,MM))
-        self.mm2 = load_tileset("tilesets/minimap2", size=(15*2,10*2), scale=2)
-
         # Data
         self.teleport_pos = {}
 
@@ -273,8 +276,9 @@ class World:
                 PNJ(data, self, self.apnjs)
             for data in world_data['animal']:
                 Animal(data, self, self.aanimals)
+            for data in world_data['item']:
+                ItemDrop(data.split(" "), self, self.adrops)
             for data in world_data['prop']:
-                if DUNGEON in data and 'stone' in data: continue
                 Prop(data.split(" "), self, self.aprops, True)
 
         # NEW WORLD
@@ -354,7 +358,10 @@ class World:
                             # Big stone
                             elif r <= 9:
                                 Prop((*pos, 'stone_big', m, None), self, self.aprops, True)
-                            
+
+        # Overlay
+        self.overlay = Overlay(self)
+
         # Details
         for m, map in zip(MAPS,maps):
             i = map.layers.index(map.get_layer_by_name('floor'))
@@ -365,7 +372,7 @@ class World:
 
                     # Minimap
                     if 'minimap' in data:
-                        self.floors_mm[m].blit(self.mm[data['minimap']], (x*MM,y*MM))
+                        self.overlay.floors[m].blit(self.overlay.minimap_floor_ts[data['minimap']], (x*MM,y*MM))
 
                     # Check if floor tile (not path...)
                     if "floor" not in data: continue
@@ -378,18 +385,19 @@ class World:
         # Maps
         self.timers['map'] = Transition(1000, callmid=self.teleport_mid)
         self.timers['begin'] = Transition(1000)
-
-        # Overlay
-        self.overlay = Overlay(self)
+        
+        self.compute_offset()
 
     def save(self):
         data = {
+            "time": self.time,
             "ended": self.ended,
             "quests":self.quests,
             "player":self.player.save(),
             "pnj": [pnj.save() for pnj in self.pnjs.values()],
             "prop": [prop.save() for prop in self.props],
             "animal": [animal.save() for animal in self.animals],
+            "item": [item.save() for item in self.itemdrops],
         }
         if self.queen and self.queen.alive():
             data["queen"] = self.queen.save()
@@ -510,6 +518,11 @@ class World:
             self.cutscene = (self.player.pos+vec2(0,TS*3), callback)
             pg.mixer.music.stop()
 
+    def drop_item(self, item, amount):
+        sounds.collect.play()
+        data = [*self.player.rect.midbottom-vec2((TS+2*SCALE)/2,0), self.player.map, item, amount]
+        ItemDrop(data, self, self.adrops)
+
     def event(self, e):
         if self.cutscene: return
         if not self.paused and not self.overlay.busy():
@@ -524,9 +537,10 @@ class World:
         self.overlay.input(k, m, dt)
         self.player.input(k, m, dt)
     
-    def compute_offset(self):
-        self.offset.x = self.player.rect.centerx - W/2
-        self.offset.y = self.player.rect.centery - H/2
+    def compute_offset(self, camspeed = 1):
+        offset = self.player.rect.center - vec2(W/2,H/2)
+        self.offset.x += (offset.x - self.offset.x) / camspeed
+        self.offset.y += (offset.y - self.offset.y) / camspeed
 
     def update_cutscene(self):
         center = vec2(W/2,H/2)
@@ -538,13 +552,18 @@ class World:
             self.cutscene = None
 
     def _daynight_compute(self):
-        t = sin((pg.time.get_ticks() / (self.daydura*1000) + 1)*math.pi)
+        t = sin((self.time*1000 / (self.day_duration*1000))*math.pi)
         return math.e**(8*t)/(1+math.e**(8*t)) * 255
 
     def update_daynight(self):
+        # Advance day
+        if not self.paused:
+            self.time += self.dt
+
+        # Compute offset
         x = self._daynight_compute()
-        self.display.fill((0,x*1/8,x*2/8), special_flags=pg.BLEND_RGB_SUB)
-        fade = 30#¤ 3000
+        self.display.fill((0,x*1/4,x*2/4), special_flags=pg.BLEND_RGB_SUB)
+        fade = 600#¤ 3000
         
         # Transition
         if x>=15>=self.daynight or x<=240<=self.daynight:
@@ -552,6 +571,7 @@ class World:
             sounds.ambiance.fadeout(fade)
             sounds.crickets.fadeout(fade)
             sounds.wind.fadeout(fade)
+
         # Sunset (x est sub !)
         elif x>=128>=self.daynight:
             music("night.wav", -1, .7, fade_ms=fade*2)
@@ -559,21 +579,21 @@ class World:
             sounds.wind.play(-1, fade_ms=fade*2)
 
             # PNJ go home
-            """for pnj in self.pnjs.values():
-                if pnj.house and not pnj.inside:
-                    pnj.go_home = True
-                    pnj.target = pnj.house.rect.midbottom"""
- 
+            if self.overlay.panel in ('trade','pnj'):
+                self.overlay.close_panel()
+                
+            for pnj in self.pnjs.values():
+                pnj.side = 'T'
+                pnj.open_door()
         # Dawn
         elif x<=128<=self.daynight:
+            # PNJ go out
+            for pnj in self.pnjs.values():
+                pnj.side = 'B'
+                pnj.open_door()
+                
             music("music.wav", -1, .7, fade_ms=fade*2)
             sounds.ambiance.play(-1, fade_ms=fade*2)
-            # PNJ go out: Open door (exit)
-            """for pnj in self.pnjs.values():
-                if not pnj.house: continue
-                pnj.house.status = "open"
-                pnj.house.frame_idx = 0
-                pnj.house.incoming = pnj"""
 
         # Paused
         if self.paused or self.cutscene:
@@ -660,7 +680,7 @@ class World:
         elif not self.paused:
             for s in self.filter:
                 s.update(dt)
-            self.compute_offset()
+            self.compute_offset(5)
         particle.update(self)
 
         # Draw
@@ -671,8 +691,6 @@ class World:
         particle.draw(self, self.hammer_pc)
         # - sprites
         for sprite in sorted(self.filter, key=lambda s: s.hitbox.bottom):
-            pg.draw.rect(self.display, 'green', sprite.rect.move(-self.offset))
-            pg.draw.rect(self.display, 'red', sprite.hitbox.move(-self.offset))
             sprite.draw()
         # - particles (no walk_pc)
         particle.draw(self,self.scratch_pc,self.damage_pc,self.bubble_pc)

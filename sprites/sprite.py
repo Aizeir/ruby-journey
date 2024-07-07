@@ -67,9 +67,10 @@ class Sprite(pg.sprite.Sprite):
         )
     
     def draw(self):
+        rect = self.rect.move(-self.world.offset)
         if self.shadow:
-            self.world.display.blit(self.shadow, self.shadow.get_rect(midtop=self.rect.midbottom-self.world.offset))
-        self.world.display.blit(self.image, self.rect.move(-self.world.offset))
+            self.world.display.blit(self.shadow, self.shadow.get_rect(midtop=rect.midbottom))
+        self.world.display.blit(self.image, rect)
         
     def update(self, dt):
         self.animate(dt)

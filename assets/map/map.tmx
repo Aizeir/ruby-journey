@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="120" height="120" tilewidth="16" tileheight="16" infinite="0" backgroundcolor="#7bc093" nextlayerid="11" nextobjectid="938">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="120" height="120" tilewidth="16" tileheight="16" infinite="0" backgroundcolor="#7bc093" nextlayerid="11" nextobjectid="941">
  <tileset firstgid="1" source="props.tsx"/>
  <tileset firstgid="21" name="floor" tilewidth="16" tileheight="16" tilecount="165" columns="11">
   <image source="../tilesets/floor.png" width="176" height="240"/>
