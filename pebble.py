@@ -1,4 +1,4 @@
-from sprites.animal import Animal
+from animal import Animal
 from prop import Prop
 from queen import Queen
 from util.prop_data import PROP_DATA

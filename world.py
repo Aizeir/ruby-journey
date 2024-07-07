@@ -5,11 +5,11 @@ import time
 from pytmx.util_pygame import load_pygame
 from overlay import Overlay
 from player import Player
-from sprites.animal import Animal
-from sprites.pnj import PNJ
+from animal import Animal
+from pnj import PNJ
 from prop import Prop
-from sprites.queen import Queen
-from sprites.sprite import Sprite
+from queen import Queen
+from sprite import Sprite
 from util.pnj_data import PNJ_IDX
 from util.prop_data import PROP_DATA
 from util import *
