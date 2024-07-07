@@ -106,6 +106,7 @@ class Overlay:
         # Interact
         self.interact_imgs = load_tileset("ui/interact", (64*UI_SCALE,18*UI_SCALE), UI_SCALE)
 
+    @property
     def busy(self):
         return self.dialog or self.panel
 
@@ -114,7 +115,7 @@ class Overlay:
 
     def event(self, e):
         # Pause key (pause/unpause)
-        if not self.busy() and e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
+        if not self.busy and e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
             sounds.pause.play()
             self.world.paused = not self.world.paused
             (pg.mixer.music.unpause, pg.mixer.music.pause)[self.world.paused]()
@@ -200,20 +201,21 @@ class Overlay:
                     self.open_panel("quest")
 
         # Minimap
-        if e.type == pg.KEYDOWN and e.key == pg.K_e:
-            sounds.press.play()
-            self.press = "minimap"
-        elif e.type == pg.KEYUP and e.key == pg.K_e and self.press == "minimap":
-            sounds.press.play()
-            self.press = None
+        if not self.busy:
+            if e.type == pg.KEYDOWN and e.key == pg.K_e:
+                sounds.press.play()
+                self.press = "minimap"
+            elif e.type == pg.KEYUP and e.key == pg.K_e and self.press == "minimap":
+                sounds.press.play()
+                self.press = None
 
-            if self.panel == "mm":
-                sounds.panel.play()
-                self.panel_timer.activate(1)
-            else:
-                self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
-                self.open_panel("mm")
-            
+                if self.panel == "mm":
+                    sounds.panel.play()
+                    self.panel_timer.activate(1)
+                else:
+                    self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
+                    self.open_panel("mm")
+                
 
     def event_dialog_click(self):
         # On dialog
@@ -770,7 +772,7 @@ class Overlay:
             mm.blit(self.world.mm2[s.mm], self.world.mm2[s.mm].get_rect(center=s.pos//MMSCALE-offset))
         
         # Drawing to display
-        self.display.blit(self.mmo_mask.to_surface(pg.Surface((size,size)), setsurface=mm,unsetcolor=(0,0,0,0)), self.minimap_rect.topleft+vec2(0,offset_y))
+        self.display.blit(self.mmo_mask.to_surface(pg.Surface((size,size)), setsurface=mm, unsetcolor=(0,0,0,0)), self.minimap_rect.topleft+vec2(0,offset_y))
         self.display.blit(self.mmo_img, self.minimap_rect.move(0, offset_y))
 
     def draw_transitions(self):

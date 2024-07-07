@@ -5,8 +5,10 @@ from pebble import Pebble
 from util import *
 
 # !!!
-# world overlay ...
-
+#? racoons tp auto si proche de joueur (follow sys ?)
+#? plr tp apres cutscene = HB CENTER AU LIEU DE RECT CENTER
+#? minimap transparence
+# "space stair2/ladder2" + refonte tp props
 
 class Player(Entity):
     def __init__(self, data, world):
@@ -41,7 +43,7 @@ class Player(Entity):
 
         # health
         self.health.max = 12
-        self.health.value = data.get('health')
+        self.health.value = data.get('health', self.health.max)
         self.health.cooldown.duration = 500
 
         self.timers['dead'] = Transition(1000, callmid=self.respawn)
@@ -148,7 +150,7 @@ class Player(Entity):
                 queen.health.value = queen.health.max
             
     def check_interact(self):
-        if self.world.overlay.busy(): self.interact = None; return
+        if self.world.overlay.busy: self.interact = None; return
 
         old = self.interact
         self.interact = None
@@ -186,7 +188,7 @@ class Player(Entity):
             sounds.broken.play()
             return
         
-        # Timer
+        # Timer (update tool draw utile)
         self.timers['tool'].activate()
         self.update_tool_draw()
 
@@ -221,7 +223,7 @@ class Player(Entity):
             sounds.slingshot.play()
             if self.has(2):
                 self.removeitem(2)
-                Pebble(self, self.tool_draw[3], normalize(self.world.mouse_world_pos-self.tool_draw[3]), self.world.sprites)
+                Pebble(self, self.tool_draw[3], normalize(self.world.mouse_world_pos-self.tool_draw[3]))
         
         # Watering can:
         elif self.get_tool() == 15:
@@ -338,11 +340,11 @@ class Player(Entity):
         tool = TOOLS[self.get_tool()]
         img = self.world.imgs['tools'][tool][SIDES.index(self.movement.side)]
         if self.movement.side == 'L':
-            hand = self.rect.midleft+vec2(0,2)*SCALE
+            hand = self.rect.midleft+vec2(0,-2)*SCALE
             rect = img.get_rect(midright=hand)
             spot = rect.midleft
         elif self.movement.side == 'R':
-            hand = self.rect.midright+vec2(0,2)*SCALE
+            hand = self.rect.midright+vec2(0,-2)*SCALE
             rect = img.get_rect(midleft=hand)
             spot = rect.midright
         self.tool_draw = (img, rect, hand, spot)

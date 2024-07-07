@@ -131,7 +131,7 @@ def sides4(status, T,B,R=(),L=()):
 
 # Vectors
 def normalize(v):
-    if v: v.normalize()
+    if v: return v.normalize()
     return v
 def int_vector(v):
     return (int(v[0]),int(v[1]))

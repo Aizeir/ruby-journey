@@ -10,11 +10,11 @@ PEBBLE_RANGE = 6*TS
 
 class Pebble(Sprite):
     def __init__(self, plr, pos, direction):
-        super().__init__(plr.world, map=plr.map, pos=pos, anim=plr.world.imgs['pebble'])
+        super().__init__(plr.world, map=plr.map, pos=pos, anim=plr.world.imgs['pebble'], hitbox=True)
 
         # Movement
-        self.direction = direction
-        self.speed = 800
+        self.direction = normalize(direction)
+        self.speed = 600
         
         self.height = plr.rect.bottom - pos[1]
         self.pos = pos
@@ -23,9 +23,7 @@ class Pebble(Sprite):
     @property
     def pos(self): return vec2(self.rect.center)
     @pos.setter
-    def pos(self, pos):
-        self.rect.center = pos
-        self.hitbox.center = pos + vec2(0,self.height)
+    def pos(self, pos): self.rect.center = pos
 
     def damage_pc(self):
         self.world.damage_pc.new(

@@ -9,8 +9,9 @@ class Sprite(pg.sprite.Sprite):
 
         self.animation = Animation(self, anim, status, self.anim_end, self.anim_new)
         
-        self.rect = self.image.get_rect(topleft=pos) if not center else self.image.get_rect(center=pos)
+        self.rect = self.image.get_rect(topleft=pos)
         self.collision = Collision(self, world, hitbox)
+        if center: self.pos = pos
 
         self.health = Health(max_health, health, self.die, 300)
         self.damage_imgs = []
@@ -30,6 +31,7 @@ class Sprite(pg.sprite.Sprite):
     def pos_int(self): return int_vector(self.pos)
     @property
     def pos_save(self): return int_vector(self.rect.center)
+    
     def anim_new(self): pass
     def anim_end(self): return True
     

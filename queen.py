@@ -14,7 +14,7 @@ class Queen(Entity):
 
         self.health.max = 10
         self.health.value = data.get('health',self.health.max)
-        self.health.cooldown = 1000
+        self.health.cooldown.duration = 1000
         self.damage_imgs = [8]
         self.drops = [[12,4],[10,4]]
 
@@ -87,24 +87,25 @@ class Queen(Entity):
         # Zones
         elif self.provoked:
             # Damage zone
-            ra = self.attack_zone.move(-self.world.offset)
-            r = self.rect.move(-self.world.offset)
-            r.h = ra.y-r.y
-            surf = pg.Surface(r.size)
-            pg.draw.rect(surf, '#ff0000', (0,0,*r.size), 0, -1, 20, 20)
+            rect_attack = self.attack_zone.move(-self.world.offset)
+            rect_damage = self.rect.move(-self.world.offset)
+            rect_damage.h = rect_attack.y-rect_damage.y
+            print(rect_attack.size, rect_damage.size)
+            surf = pg.Surface(rect_damage.size)
+            pg.draw.rect(surf, '#ff0000', (0,0,*rect_damage.size), 0, -1, 20, 20)
             surf.set_alpha(20)
             
-            self.world.display.blit(surf, r)
+            self.world.display.blit(surf, rect_damage)
             if self.health.cooldown.active:
-                self.world.display.blit(surf, r)
+                self.world.display.blit(surf, rect_damage)
 
             # Attack zone
-            surf = pg.Surface(ra.size)
-            pg.draw.rect(surf, '#ffffff', (0,0,*ra.size), 0, 20)
+            surf = pg.Surface(rect_attack.size)
+            pg.draw.rect(surf, '#ffffff', (0,0,*rect_attack.size), 0, 20)
             surf.set_alpha(20)
-            self.world.display.blit(surf, ra)
+            self.world.display.blit(surf, rect_attack)
             if self.timers['attack'].active:
-                self.world.display.blit(surf, ra)
+                self.world.display.blit(surf, rect_attack)
 
         # Draw
         return super().draw()

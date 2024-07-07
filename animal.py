@@ -20,7 +20,7 @@ class Animal(Entity):
         self.health.cooldown.duration = 300
 
         self.damage_imgs = [4]
-        self.drops = {'chicken': [10], 'racoon': [12]}[self.name]
+        self.drops = {'chicken': [[10,1]], 'racoon': [[12,1]]}[self.name]
 
         # Attacking
         self.attacking = False
