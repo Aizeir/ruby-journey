@@ -93,12 +93,6 @@ def load_tileset(path, size=(TS,TS), scale=SCALE):
             tilemap.append(image.subsurface((x*size[0], y*size[1], size[0], size[1])))
     return tilemap
 
-# shadow (sprites)
-def get_shadow(img, size):
-    return\
-        img.subsurface(0, img.get_height()-size, img.get_width(), size),\
-        img.subsurface(0, 0, img.get_width(), img.get_height()-size)
-
 # outline (ui)
 def ui_outline(overlay, img, color=UI[1], corner=False, big=True, **k):
     if isinstance(img, str):
@@ -135,3 +129,9 @@ def sides4(status, T,B,R=(),L=()):
         status+'_R': R or flips(L),
     }
 
+# Vectors
+def normalize(v):
+    if v: v.normalize()
+    return v
+def int_vector(v):
+    return (int(v[0]),int(v[1]))

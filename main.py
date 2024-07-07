@@ -48,7 +48,7 @@ class Game:
 
         for e in pg.event.get():
             if e.type == pg.QUIT:
-                screenshot(self.display, "capture5.png")
+                #screenshot(self.display, "capture5.png")
                 if self.world:
                     with open("assets/data.json","w") as file:
                         json.dump(self.world.save(), file)

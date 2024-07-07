@@ -8,32 +8,32 @@ class Collision:
         elif isinstance(hitbox, pg.Rect):
             self.hitbox = hitbox.move(sprite.rect.topleft)
         else:
-            self.hitbox = pg.Rect((0,0),hitbox).move_to(midbottom=sprite.rect.midbottom)
+            shadow_height = hitbox[2] if len(hitbox)==3 else 0
+            self.hitbox = pg.Rect((0,0),hitbox[:2]).move_to(midbottom=sprite.rect.midbottom-vec2(0,shadow_height))
         
         self.offset = self.hitbox.topleft - vec2(sprite.rect.topleft)
         sprite.add(world.collides)
-        
+
 
 class Animation:
-    def __init__(self, sprite, anim, status=None, end=lambda:None):
+    def __init__(self, sprite, anim, status=None, end=lambda:True, new_frame=lambda:None):
         self.sprite = sprite
         self.animation = anim
         self.status = status
         self.frame_idx = 0
         self.anim_speed = ANIM_SPEED
+
+        self.new_frame = new_frame
         self.end = end
 
-        self.sprite.image = self.image
-
-    def on_end(self, func): self.end = func
-
+        self.sprite.image = self.get_image()
+        
     @property
     def is_image(self): return isinstance(self.animation, pg.Surface)
     @property
     def frames(self):
         return self.animation[self.status] if isinstance(self.animation, dict) else self.animation
-    @property
-    def image(self):
+    def get_image(self):
         return self.frames if self.is_image else self.frames[int(self.frame_idx)]
 
     def set_status(self, status):
@@ -42,12 +42,22 @@ class Animation:
     
     def update(self, dt):
         if self.is_image: return
-        # Animate
+
+        # Incrase frame idx
+        old = self.frame_idx
         self.frame_idx += self.anim_speed * dt
-        if self.frame_idx >= len(self.frames) and not self.end():
-            self.frame_idx = 0
-        self.sprite.image = self.image
+        # New frame
+        if int(self.frame_idx) > old:
+            self.new_frame()
+        # End of anim
+        if self.frame_idx >= len(self.frames):
+            if self.end():
+                self.frame_idx = 0
+
+        # Update image
+        self.sprite.image = self.get_image()
             
+
 class Movement:
     def __init__(self, sprite):
         self.sprite = sprite
@@ -58,11 +68,11 @@ class Movement:
     @property
     def moving(self): return bool(self.direction)
 
-    def update(self, dt):
+    def update(self, dt, side=True):
         if not self.direction: return
         
         # Get side
-        if self.direction.x:
+        if self.direction.x and side:
             self.side = 'LR'[self.direction.x>0]
 
         # Movement vector
@@ -91,7 +101,6 @@ class Movement:
 
         # Collision Y
         sprite.hitbox.y += movement.y
-        sprite.hitbox.centery = max(0,sprite.hitbox.centery)
         for obj in sprite.world.collides_filter:
             if obj == sprite: continue
             if sprite.hitbox.colliderect(obj.hitbox):
@@ -132,10 +141,13 @@ class Health:
 
     def add(self, x):
         if self.dead or self.cooldown.active: return
-        self.cooldown.activate()
 
         self.value = clamp(0, self.value+x, self.max)
-        if self.dead: self.die()
+        if self.dead:
+            self.die()
+        else:
+             self.cooldown.activate()
 
     def update(self, dt):
         self.cooldown.update()
+

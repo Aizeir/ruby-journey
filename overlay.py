@@ -33,6 +33,9 @@ class Overlay:
         self.pause_cont = textr("(click to continue)", self.font, UI[1],
             center=(W/2,H*.5))
         
+        # Key pressed
+        self.press = None
+        
         # Panels
         def panel_None(): self.panel = None
         self.panel_timer = Transition(300, 150, callmid=self.open_panel_dialog, callend=panel_None)
@@ -78,28 +81,14 @@ class Overlay:
         self.tool_limit_img = load("ui/tool_limit", UI_SCALE)
         self.tool_rects = [pg.Rect(0,0, *self.tools_imgs[0].get_size()).move_to(bottomright=vec2(W-48, H-80-(self.tools_imgs[0].get_height()+UI_SCALE)*y)) for y in range(maxtools)]
         
-        def tool_switch():
-            sounds.switch.play()
-            self.player.tool = (self.player.tool+1)%len(self.player.tools)
-        self.tab_press = Timer(150, tool_switch)
-        
         # Heart (mines)
         self.heart_imgs = load_tileset("ui/heart", (13*SCALE*2,11*SCALE*2), SCALE*2)
 
         # Minimap
         self.minimap_img, mask = load_tileset("ui/minimap", (UI_SCALE*48,UI_SCALE*48), UI_SCALE)
         self.minimap_mask = pg.mask.from_surface(mask)
-        
-        def toggle_mm():
-            if self.panel == "mm":
-                sounds.panel.play()
-                self.panel_timer.activate(1)
-            else:
-                self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
-                self.open_panel("mm")
         self.minimap_open_img = load_tileset("ui/mmopen", (11*UI_SCALE, 12*UI_SCALE), UI_SCALE)
-        self.minimap_press = Timer(150, toggle_mm)
-        
+
         scale = int(UI_SCALE*2.5)
         self.mmo_img, mask = load_tileset("ui/minimap", (scale*48,scale*48), scale)
         self.mmo_mask = pg.mask.from_surface(mask)
@@ -116,9 +105,6 @@ class Overlay:
 
         # Interact
         self.interact_imgs = load_tileset("ui/interact", (64*UI_SCALE,18*UI_SCALE), UI_SCALE)
-        
-        def interact(): self.player.interact.interact()
-        self.interact_press = Timer(150, interact)
 
     def busy(self):
         return self.dialog or self.panel
@@ -127,25 +113,26 @@ class Overlay:
         pass
 
     def event(self, e):
-        # Pause
+        # Pause key (pause/unpause)
         if not self.busy() and e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE:
             sounds.pause.play()
             self.world.paused = not self.world.paused
-            if self.world.paused:  pg.mixer.music.pause()
-            else:                  pg.mixer.music.unpause()
-        # Unpause
-        if self.world.paused and e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
-            sounds.click.play()
-            self.world.paused = False
-            # Return mainmenu
-            if self.pause_mm[1].collidepoint(self.world.mouse_pos):
-                self.world.game.scene = self.world.game.mainmenu
-                self.world.game.scene.open()
-            # Continue
-            else:
-                pg.mixer.music.unpause()
-            return
+            (pg.mixer.music.unpause, pg.mixer.music.pause)[self.world.paused]()
 
+        # Pause menu events (return or continue)
+        if self.world.paused:
+            if e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
+                sounds.click.play()
+                self.world.paused = False
+                # Return mainmenu
+                if self.pause_mm[1].collidepoint(self.world.mouse_pos):
+                    self.world.game.scene = self.world.game.mainmenu
+                    self.world.game.scene.open()
+                # Continue
+                else:
+                    pg.mixer.music.unpause()
+            return
+        
         # Dialog
         if self.dialog_rect:
             # click - event (sounded)
@@ -155,6 +142,16 @@ class Overlay:
             if e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
                 sounds.press.play()
                 self.dialog_trigger()
+    
+        # Interact
+        if self.player.interact:
+            if e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
+                sounds.press.play()
+                self.press = "interact"
+            elif e.type == pg.KEYUP and e.key == pg.K_SPACE and self.press == "interact":
+                sounds.release.play()
+                self.press = None
+                self.player.interact.interact()
         
         # Panel (Trade / PNJ)
         if self.panel_timer.percent() and not (self.dialog_rect and self.dialog_rect.collidepoint(self.world.mouse_pos)):
@@ -171,40 +168,52 @@ class Overlay:
                 self.close_panel()
                 
         # Tools
-        if e.type == pg.KEYDOWN and e.key == pg.K_TAB and self.player.tools:
-            sounds.press.play()
-            self.tab_press.activate()
-        elif e.type == pg.KEYUP and e.key == pg.K_TAB and self.player.tools:
-            sounds.release.play()
-            self.tab_press.callback()
-            self.tab_press.deactivate()
+        if self.player.tools:
+            if e.type == pg.KEYDOWN and e.key == pg.K_TAB:
+                sounds.press.play()
+                self.press = "tools"
+            elif e.type == pg.KEYUP and e.key == pg.K_TAB and self.press == "tools":
+                sounds.release.play()
+                self.press = None
+            
+                sounds.switch.play()
+                self.player.tool = (self.player.tool+1)%len(self.player.tools)
 
         # Inventory
         inv_len = len(self.player.inventory.items)
-        if e.type == pg.MOUSEWHEEL and inv_len > 5:
+        if inv_len > 5 and e.type == pg.MOUSEWHEEL:
             inv_idx = max(0,min(inv_len-5,self.inv_idx-e.y))
             if inv_idx != self.inv_idx:
                 sounds.switch.play()
                 self.inv_idx = inv_idx
 
         # Quest
-        if self.quest_rect.collidepoint(self.world.mouse_pos) and e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
-            sounds.click.play()
-            if self.panel == "quest":
+        if self.quest_rect.collidepoint(self.world.mouse_pos):
+            if e.type == pg.MOUSEBUTTONDOWN and e.button == 1:
+                sounds.click.play()
+                if self.panel == "quest":
+                    sounds.panel.play()
+                    self.panel_timer.activate(1)
+                elif not self.player.quests:
+                    self.quest_notif_timer.toggle()
+                else:
+                    self.open_panel("quest")
+
+        # Minimap
+        if e.type == pg.KEYDOWN and e.key == pg.K_e:
+            sounds.press.play()
+            self.press = "minimap"
+        elif e.type == pg.KEYUP and e.key == pg.K_e and self.press == "minimap":
+            sounds.press.play()
+            self.press = None
+
+            if self.panel == "mm":
                 sounds.panel.play()
                 self.panel_timer.activate(1)
-            elif not self.player.quests:
-                self.quest_notif_timer.toggle()
             else:
-                self.open_panel("quest")
-        # Minimap
-        elif e.type == pg.KEYDOWN and e.key == pg.K_e:
-            sounds.press.play()
-            self.minimap_press.activate()
-        elif e.type == pg.KEYUP and e.key == pg.K_e:
-            sounds.press.play()
-            self.minimap_press.callback()
-            self.minimap_press.deactivate()
+                self.close_panel()# explication: qd on ouvre quest on ferme en mm temps pnj (event pnj) or ici c par keypress donc ca ferme pas les panel dialog
+                self.open_panel("mm")
+            
 
     def event_dialog_click(self):
         # On dialog
@@ -649,7 +658,6 @@ class Overlay:
     def draw_tools(self):
         plr = self.player
         if not plr.tools: return
-        self.tab_press.update()
 
         # Variables
         length = min(len(self.player.tools),maxtools)
@@ -695,21 +703,19 @@ class Overlay:
 
         # TAB
         r = self.tab_imgs[0].get_rect(midtop=(rect.centerx, self.tool_rects[0].bottom+1*UI_SCALE))
-        self.display.blit(self.tab_imgs[self.tab_press.active], r)
+        self.display.blit(self.tab_imgs[self.press=="tools"], r)
 
     def draw_interact(self):
         if not (self.player.timers['interact'].active or self.player.interact): return
-        self.interact_press.update()
 
         # Rect
         rect = self.interact_imgs[0].get_rect(midbottom=(W/2, H+64-112*self.player.timers['interact'].percent()))
-        pressed = self.interact_press.active
-        self.display.blit(self.interact_imgs[pressed], rect)
+        self.display.blit(self.interact_imgs[self.press=="interact"], rect)
 
         # Text
         if self.player.interact:
             self.interact_text = self.font.render(self.player.interact.name, False, UI[7])
-        self.display.blit(self.interact_text, self.interact_text.get_rect(midtop=rect.midtop+vec2(2,(8+pressed)*UI_SCALE+1)))
+        self.display.blit(self.interact_text, self.interact_text.get_rect(midtop=rect.midtop+vec2(2,(8+(self.press=="interact"))*UI_SCALE+1)))
 
     def draw_health(self):
         if self.player.map not in (MINES,DUNGEON): return
@@ -717,8 +723,6 @@ class Overlay:
         self.display.blit(heart, heart.get_rect(midtop=(W/2,H*.1)))
 
     def draw_minimap(self):
-        self.minimap_press.update()
-
         # Setup minimap surf
         size = self.minimap_img.get_width()
         mm = pg.Surface((size,size))
@@ -742,7 +746,7 @@ class Overlay:
 
         # Open button
         r = self.minimap_open_img[0].get_rect(center=rect.midbottom+vec2(2*UI_SCALE, 0))
-        self.display.blit(self.minimap_open_img[self.minimap_press.active], r)
+        self.display.blit(self.minimap_open_img[self.press=="minimap"], r)
     
     def draw_mm_panel(self):
         if self.panel != "mm": return
@@ -811,7 +815,7 @@ class Overlay:
         if self.world.paused:
             self.draw_pause_menu()
             return
-        elif self.player.status == 'dead':
+        elif self.player.dead:
             self.draw_health()
             self.draw_transitions()
             return

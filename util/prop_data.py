@@ -1,6 +1,6 @@
 from util import *
 
-# Shadow constan
+# Shadow constants - hitbox: (w,h, shadow height)
 SHS = 4*SCALE
 SHB = 10*SCALE
 
@@ -11,28 +11,24 @@ PROP_DATA = {
     },
 
     "house": {
-        "hitbox":(38*SCALE,21*SCALE),
-        "shadow": 7*SCALE,
+        "hitbox":(38*SCALE,21*SCALE,  7*SCALE),
     },
     "abandoned": {
         "damage":[0],
         "drop":(6, 16),
         "health":50,
-        "hitbox":(58*SCALE,56*SCALE),
+        "hitbox":(58*SCALE,56*SCALE,  SHB),
         "tool":3,
         "mm": 11,
-        "shadow": SHB,
     },
     "tent": {
-        "hitbox":(39*SCALE,30*SCALE),
-        "shadow": SHB,
+        "hitbox":(39*SCALE,30*SCALE,  SHB),
     },
 
     "mine": {
         "teleport": "ladder",
-        "hitbox":(36*SCALE,21*SCALE),
+        "hitbox":(36*SCALE,21*SCALE,  SHB),
         "mm": 9,
-        "shadow": SHB,
     },
     "ladder": {
         "teleport": "mine",
@@ -42,7 +38,6 @@ PROP_DATA = {
     "ladder2": {
         "teleport": "hole",
         "hitbox":(13*SCALE,3*SCALE),
-        "mm": 7,
     },
     "stair": {
         "teleport": "stair2",
@@ -51,9 +46,8 @@ PROP_DATA = {
     },
     "stair2": {
         "teleport": "stair",
-        "hitbox":(14*SCALE,11*SCALE),
+        "hitbox":(14*SCALE,11*SCALE,  SHS),
         "mm": 6,
-        "shadow": SHS,
     },
     "hole": {
         "teleport": "ladder2",
@@ -66,74 +60,65 @@ PROP_DATA = {
         "damage":[1],
         "drop":(2,2),
         "health":2,
-        "hitbox":(9*SCALE,6*SCALE),
+        "hitbox":(9*SCALE,6*SCALE,  SHS),
         "tool":4,
         'small':1,
-        "shadow": SHS,
     },
     "iron": {
         "damage":[1,2],
         "drop":(7,1),
         "health":6,
-        "hitbox":(9*SCALE,6*SCALE),
+        "hitbox":(9*SCALE,6*SCALE,  SHS),
         "tool":13,
         'small':1,
-        "shadow": SHS,
     },
     "stone_2": {
         "damage":[1],
         "drop":(2,4),
         "health":4,
-        "hitbox":(13*SCALE,8*SCALE),
+        "hitbox":(13*SCALE,8*SCALE,  SHS),
         "tool":4,
         'small':1,
-        "shadow": SHS,
     },
     "stone_big": {
         "tool":4,
         "drop":(2,8),
         "health":8,
         "damage":[1],
-        "hitbox":(20*SCALE,10*SCALE),
-        "shadow": SHS,
+        "hitbox":(20*SCALE,10*SCALE,  SHS),
     },
 
     "tree": {
         "damage":[0,3],
         "drop":(6,3),
         "health":3,
-        "hitbox":(9*SCALE,9*SCALE),
+        "hitbox":(9*SCALE,9*SCALE,  SHB),
         "tool":3,
-        "shadow": SHB,
     },
     "tree2": {
         "damage":[0,3],
         "drop":(6,3),
         "health":3,
-        "hitbox":(9*SCALE,9*SCALE),
+        "hitbox":(9*SCALE,9*SCALE,  SHB),
         "tool":3,
-        "shadow": SHB,
     },
     "fruit_tree": {
-        "hitbox":(9*SCALE,9*SCALE),
-        "shadow": SHB,
+        "hitbox":(9*SCALE,9*SCALE,  SHB),
         "mm": 13,
     },
     "trunk": {
         "damage":[0],
         "drop":(6,6),
         "health":4,
-        "hitbox":(13*SCALE,26*SCALE),
+        "hitbox":(13*SCALE,26*SCALE,  SHS),
         "tool":3,
-        "shadow": SHS,
     },
     "wood": {
         "damage":[0],
         "drop":(6,3),
         "health":2,
-        "hitbox":(13*SCALE,10*SCALE),
+        "hitbox":(13*SCALE,10*SCALE,  SHS),
         "tool":3,
-        "shadow": SHS,
     },
 
     "torch": {

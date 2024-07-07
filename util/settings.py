@@ -6,31 +6,44 @@ from util.keybinds import *
 W, H = 1280, 720
 FPS = 120
 ANIM_SPEED = 8
+MUSIC_END = pg.USEREVENT+1
 
+# Tiles
 SCALE = 5
 TILESIZE = TS = 16*SCALE
 TILE = vec2(TILESIZE,TILESIZE)
 TILEINT = (TILESIZE,TILESIZE)
+
+# Minimap
 MM = 4
 MMSCALE = TS // MM
 
-MUSIC_END = pg.USEREVENT+1
+# Hitboxes (faire les autres!)
+PLR_HITBOX =   (10*SCALE, 6*SCALE,    8*SCALE)
+PNJ_HITBOX =   ( 7*SCALE, 4*SCALE,    4*SCALE)
+QUEEN_HITBOX = (48*SCALE,24*SCALE,   20*SCALE)
+ANIMAL_HITBOX = {
+    'chicken': (12*SCALE, 5*SCALE,    4*SCALE),
+    'racoon':  (12*SCALE, 5*SCALE,    4*SCALE)
+}
 
-CHAR_HB = (10*SCALE,7*SCALE)
-PNJ_HB = (7*SCALE,4*SCALE)
 SIDES = ["B","T","L","R"]
 
+# Maps
 WILD = 'wild'
 MINES = 'mines'
 DUNGEON = 'dungeon'
 MAPS = (WILD,MINES,DUNGEON)
 WILDCOLOR = "#5a8c6c"
 
+# Hitbox
 PROP_MARGIN = int(TS*.2)
-
 BOAT_OFF = (7, -13)
 
-# Colors
+# UI
+TYPE_TIME = 50
+UI_SCALE = 4
+TITLE_BD = 4
 UI = [
     (19,19,19),
     (38,38,38),
@@ -41,14 +54,19 @@ UI = [
     (223,223,223),
     (244,244,244),
 ]
-TYPE_TIME = 50
-UI_SCALE = 4
-TITLE_BD = 4
 
+# Tools
 TOOLS = {3:'axe',4:'pickaxe',5:'lance',8:'fish rod',13:'hammer',14:'slingshot',15:"watering can"}
 TOOL_DURA = {3:60,4:36,5:36,8:36,13:24,14:-1,15:1}
-
+TOOL_ATTACK = {
+    3: (1, 1),
+    4: (1.5, 1.5),
+    5: (1, .75),
+    13: (1.5, 2),
+}
 HAMMER_RANGE = TS*1.5
+
+# Items
 ITEMS = {
     'gold': "The world's currency.\nYou reached Golden Age.",
     'ruby': "You made it.\nYou got the ruby.",
@@ -71,11 +89,5 @@ ITEMS = {
 }
 ITEMNAMES = list(ITEMS.keys())
 
-TOOL_ATTACK = {
-    3: (1, 1),
-    4: (1.5, 1.5),
-    5: (1, .75),
-    13: (1.5, 2),
-}
-
+# Other
 FRUITTREE_TIME = 5

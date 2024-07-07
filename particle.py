@@ -59,7 +59,8 @@ def draw(w, *groups):
 def update(w):
     for pc in particles:
         for p in pc.particles:
-            pc.update_func(p, w)
+            if pc.update_func:
+                pc.update_func(p, w)
 
         pc.particles = [p for p in pc.particles if p not in pc.to_delete]
         pc.to_delete.clear()

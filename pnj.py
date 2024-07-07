@@ -1,36 +1,30 @@
 from util import *
-from entity import Entity
+from sprite import Entity
 from util.pnj_data import *
 
 PNJ_MM = [2,3,4,5,12]
 
 class PNJ(Entity):
-    def __init__(self, data, world, groups):
+    def __init__(self, data, world):
         self.name = data['name']
-        self.world = world
+
+        super().__init__(world, map=data.get('map',WILD), pos=data['pos'], anim=world.imgs['pnj'][self.name], hitbox=PNJ_HITBOX, status="idle_B")
         self.world.pnjs[self.name] = self
 
-        super().__init__(world, data.get('map',WILD), data['pos'], groups, PNJ_HB, "idle", "B")
-        
+        # PNJ data
         self.data = pnj_data(self)
         self.options = tuple(k for k in self.data.keys() if '_'not in k)
-
         self.friend = data.get("friend",0)
         self.quest_idx = data.get("quest",0)
         self.talk_idx = data.get("talk",0)
 
+        # Minimap
+        self.add(world.mms)
         self.mm = PNJ_MM[PNJ_IDX.index(self.name)]
-
-        self.house = None
-        self.go_home = False
-        self.speed *= .3
-        self.inside = False
-
-        self.target = self.pos
 
     def save(self):
         return {
-            "pos": (int(self.pos.x),int(self.pos.y)), 
+            "pos": self.pos_save, 
             "name": self.name,
             "friend": self.friend,
             "quest": self.quest_idx,
@@ -40,38 +34,6 @@ class PNJ(Entity):
     
     def load(self, data):
         self.friend, self.quest_idx, self.talk_idx = data
-
-    def load_graphics(self, world):
-        ts = self.world.pnj_imgs[self.name]
-        
-        self.shadows = {}
-        animation = {}
-        
-        def anim(n, y, length, flip=False):
-            imgs = ts[y*4:y*4+length]
-            if flip: imgs = flips(imgs, 1)
-
-            anims, shadows = [],[]
-            for img in imgs:
-                shadow, img = get_shadow(img, 4*SCALE)
-                shadows.append(shadow); anims.append(img)
-            animation[n] = anims
-            self.shadows[n] = shadows
-        
-        anim("idle_B", 0,1)
-        anim("idle_T", 1,1)
-        anim("idle_R", 2,1)
-        anim("idle_L", 2,1, 1)
-        anim("move_B", 0,4)
-        anim("move_T", 1,4)
-        anim("move_R", 2,4)
-        anim("move_L", 2,4, 1)
-        return animation
-    
-    def get_side(self):
-        if self.direction:
-            self.side = ("L","","R")[round(self.direction.x+1)]\
-                     or ("T","","B")[round(self.direction.y+1)]
     
     def interact(self):
         if self.talk_idx == 0:
@@ -242,53 +204,3 @@ class PNJ(Entity):
             ["M1N3RD", f"I have {n} chickens and\nI sell {mult}/{div} of them.", None],
             ["M1N3RD", f"How much I have left ?", choices],
         ]
-
-
-    def update_target(self):
-        if not self.target or self.pos.distance_to(self.target) > TS//4: return
-        
-        # Home
-        if self.go_home:
-            self.target = None
-            self.go_home = False
-            self.house.status = "open"
-            self.house.frame_idx = 0
-            self.house.incoming = self
-
-        # Wander
-        elif not self.inside:
-            self.target = None
-            return
-            x = choice((0,1))*choice((-1,1))
-            y = 0 if x else choice((0,1))*choice((-1,1))
-            self.target = self.pos + vec2(x,y) * randint(1,1)*timers_update
-
-    def enter(self):
-        self.inside = True
-        self.set_position((-100,100))
-
-    def exit(self, house):
-        self.side = "B"
-        self.inside = False
-        self.set_position(house.rect.midbottom)
-    
-    def move(self, dt):
-        if not self.target: return
-        # Get directions
-        vec = self.target - self.pos
-        dirs = list(sorted([vec2(1,0),vec2(-1,0),vec2(0,1),vec2(0,-1)], key=lambda d: d.angle_to(vec)))
-        for dir in dirs:
-            if not self.collision(dir * self.speed * dt): break
-        else: return
-        self.direction = dir
-        self.hitbox.move_ip(dir * self.speed * dt)
-        self.set_position()
-
-    def collision(self, dir):
-        for s in self.world.collides:
-            if s != self and s.hitbox.colliderect(self.hitbox.move(dir)):
-                return True
-    
-    def update(self, dt):
-        self.update_target()
-        return super().update(dt)

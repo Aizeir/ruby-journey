@@ -7,38 +7,28 @@ class Prop(Sprite):
     def __init__(self, data, world, center=False):
         # Name
         self.name = data[2]
-        info = PROP_DATA[self.name]
         anim_name = self.name if self.name!='tree' else choice(('tree','tree2'))
 
-        # Init
-        super().__init__(world, data[3], (int(data[0]),int(data[1])), world.props_imgs[anim_name], info['hitbox'])
-        self.add(self.world.props)
-        
-        # Shadow
-        if 'shadow' in info:
-            shadows = world.shadow_imgs[anim_name]
-            if isinstance(shadows, dict):
-                self.shadows = shadows
-            else:
-                self.shadow = shadows
+        # Info (for all trees) and data (for specific tree)
+        info = PROP_DATA[self.name]
+        self.data = data[5] if len(data)>5 else None
 
-        # Center pos
-        if center: self.set_position(self.rect.topleft)
-        
-        # Info
-        self.drop = info.get('drop')
+        # Init
+        super().__init__(world, map=data[3], pos=int_vector(data[0:2]), anim=world.imgs['props'][anim_name], hitbox=info['hitbox'], center=center)
+        self.add(world.props)
+
+        # Health
+        self.health.max = info.get('health',1)
+        self.health.value = int(data[4]) if data[4] else self.health.max
+        self.health.cooldown.duration = 300
+
+        self.damage_imgs = info.get('damage', [0])
+        self.drops = [info.get('drop')]
         self.tool = info.get('tool')
-        
-        # Damage
-        self.dmg_imgs = [world.damage_imgs[x] for x in info.get('damage',[0])]
-        self.health = Health(info.get('health',1), int(data[4]) if data[4] else None, self.die, 500)
 
         # Alpha
         self.alpha_timer = Transition(200, 100)
         self.plr_behind = False
-
-        # Data
-        self.data = data[5] if len(data)>5 else None
 
         # Teleport / Other name-depending
         if 'teleport' in info:
@@ -82,52 +72,35 @@ class Prop(Sprite):
             else:
                 data = str(self.data)
             data = " " + data
-        return f"{int(self.pos.x)} {int(self.pos.y)} {self.name} {self.map} {self.health}"+data
-
-    def set_position(self, pos=None):
-        self.hitbox.center = pos or self.hitbox.center
-        self.rect.topleft = self.hitbox.topleft - self.collision.offset
-
-    def damage_pc(self):
-        self.world.damage_pc.new(
-            vec2(randint(self.rect.x,self.rect.right),randint(self.rect.y,self.rect.bottom)),
-            image=choice(self.dmg_imgs).copy(),
-            floor=self.rect.bottom,
-            #group=self.particles
-        )
+        return f"{int(self.rect.x)} {int(self.rect.y)} {self.name} {self.map} {self.health.value}"+data
     
     def damage(self):
         if self.name == 'abandoned' and self.data != None: return
         
-        self.health -= 1
-        sounds.hit.play()
-        for _ in range(self.health):
-            self.damage_pc()
+        if super().damage():
+            sounds.hit.play()
 
     def die(self):
         sounds.lasthit.play()
-        # damage particles final
-        for _ in range(self.health.max):
-            self.damage_pc()
-        # drops
-        if self.drop:
-            self.world.player.additem(*self.drop)
-        # abandoned: destroy but dont kill
+        # Barn
         if self.name == 'abandoned' and self.data == None:
+            # ruin image
             self.world.quests['abandoned'] = True
             self.data = "d"
             self.image = self.world.props_imgs['barn_destroy']
+            # dont kill
+            super().die(False)
             return
-        # kill
-        self.kill()
+        # Die
+        super().die()
     
     def interact(self):
         plr = self.world.player
-        # Unveil props
+
+        # Unveil hole/dungeon stair
         if self.name in ('hole','stair') and self.world.quests['dungeon'] and self.world.mms not in self.groups():
             self.world.mms.add(self)
-
-        # Interact
+        # End Boat
         if self.name == 'boat':
             if plr.has(1) and not self.world.ended:
                 self.remove(self.world.interacts)
@@ -137,46 +110,36 @@ class Prop(Sprite):
                 self.world.timers['end'].activate()
             else:
                 self.world.overlay.open_dialog([None, 'You shall not go back without the RUBY !', None])
-        
+        # Fruit Tree
         elif self.name == 'fruit_tree':
             sounds.collect.play()
             plr.additem(16, len(self.data[1]))
             self.data = ['water']
             self.remove(self.world.interacts)
-        
+        # Locked mine/ladder
         elif self.name in ('mine','ladder') and not plr.has(11):
             self.world.overlay.open_dialog([None, "It's locked...", None])
+        # Locked hole
         elif self.name == "hole":
             if self.world.quests['dungeon']:
                 self.world.teleport(self.name)
             else:
                 self.world.overlay.open_dialog(['You', "I'm too scared to enter for now.\nI hear some noise inside...", None])
+        # Teleport
         else:
             self.world.teleport(self.name)
 
     def draw(self):
-        # Rect
-        display, rect = self.world.display, self.rect.move(-self.world.offset)
-
-        # behind
+        # Player behind
         old = self.plr_behind
         plr_hitbox = self.world.player.hitbox
         self.plr_behind = plr_hitbox.colliderect(self.rect) and (plr_hitbox.bottom <= self.hitbox.top)
         self.alpha_timer.activate_var(self.plr_behind, old)
 
-        # alpha
+        # Alpha (behind and damage)
         alpha = self.health.cooldown.percent() * (1-.3*self.alpha_timer.percent())
         self.image.set_alpha(255*alpha)
-        if self.shadow: self.shadow.set_alpha(255*alpha)
-        
-        # Health
-        if self.health.cooldown.active:
-            surf = pg.Surface((24,12))
-            surf.set_alpha((1-self.health.cooldown.percent())*255)
-            surf.fill("#734d5c")
-            pg.draw.rect(surf, '#a76772', (0,0,surf.get_width()*self.health/self.max_health,surf.get_height()))
-            display.blit(surf, surf.get_rect(midbottom=rect.midtop+vec2(0,-4)))
-        
+
         # Draw
         super().draw()
 
@@ -191,43 +154,16 @@ class Prop(Sprite):
             elif self.data[0] == 'fruit':
                 img = self.world.overlay.items[16]
                 for pos in self.data[1]:
-                    display.blit(img, img.get_rect(center=rect.topleft+pos))
-
+                    self.world.display.blit(img, img.get_rect(center=self.draw_rect.topleft+pos))
+            # tag draw
             if tag:
-                r = tag.get_rect(midbottom=rect.midtop+vec2(0, -4*SCALE))
-                pg.draw.rect(display, UI[6], r.inflate(8,8))
-                pg.draw.rect(display, UI[5], r.inflate(8,8), 4)
-                display.blit(tag,r)
-
-    def animate(self, dt):
-        res = super().animate(dt)
-        return##
-        # House
-        if res and self.name == "house":
-            # Open door (enter or exit?)
-            if self.status == "open":
-                # Close back
-                self.status = "close"
-                self.frame_idx = 0
-
-                # Exit
-                if self.incoming.inside:
-                    self.incoming.exit(self)
-                    self.incoming = None
-                # Enter
-                else:
-                    print("???")
-                    self.incoming.enter()
-
-            # Close door
-            elif self.status == "close":
-                self.status = None
-            
-            self.update_image(self.status)
+                r = tag.get_rect(midbottom=self.draw_rect.midtop+vec2(0, -4*SCALE))
+                pg.draw.rect(self.world.display, UI[6], r.inflate(8,8))
+                pg.draw.rect(self.world.display, UI[5], r.inflate(8,8), 4)
+                self.world.display.blit(tag,r)
                 
     def update(self, dt):
         super().update(dt)
-        self.health.update()
         self.alpha_timer.update()
 
         # apples ready

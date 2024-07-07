@@ -1,17 +1,23 @@
-import math
-import pygame as pg
+import pygame as p
 from inventory import Inventory
-from entity import Entity
+from sprite import Entity
 from pebble import Pebble
 from util import *
 
+# !!!
+# world overlay ...
+
 
 class Player(Entity):
-    def __init__(self, data, world, groups):
-        super().__init__(world, data.get('map',WILD), data['pos'], groups, hitbox=CHAR_HB, side='R')
-        
+    def __init__(self, data, world):
+        super().__init__(world, map=data.get('map',WILD), pos=data['pos'], anim=world.imgs['player'], hitbox=PLR_HITBOX)
+
+        # Minimap
+        self.add(world.mms)
         self.mm = 0
-        self.spawn_pos = data.get('spawn_pos', (int(self.pos.x),int(self.pos.y)))
+
+        # Some info
+        self.spawn_pos = data.get('spawn_pos', self.pos_int)
         self.frozen = False
 
         # Interact
@@ -31,101 +37,59 @@ class Player(Entity):
         self.hand = load("player/hand",scale=SCALE)
 
         # particles
-        self.dmg_img,self.water_img,self.break_img = world.damage_imgs[5:8]
-        self.particles = []
+        self.damage_imgs, self.water_img, self.break_img = [5],6,7
 
         # health
-        self.max_health = 400
-        self.health = data.get('health',self.max_health)
-        self.timers['damage'] = Timer(500)
+        self.health.max = 12
+        self.health.value = data.get('health')
+        self.health.cooldown.duration = 500
+
         self.timers['dead'] = Transition(1000, callmid=self.respawn)
         self.timers['knockback'] = Timer(500)
 
         # quests
         self.quests = data.get('quests', [])
 
-        # Random timers
+        # timers
         self.timers['fishing'] = Timer(2000)
         self.timers['walk'] = Timer(400)
-    
-    def move(self, dt):
-        # Normalize direction
-        if self.direction.magnitude() > 0:
-            self.direction = self.direction.normalize()
-        
-        if self.timers['knockback'].active:
-            self.direction += self.timers['knockback'].direction
-        
-        # Apply movement
-        self.hitbox.centerx += round(self.direction.x * self.speed * dt)
-        self.collision("h")
-        self.hitbox.centery += round(self.direction.y * self.speed * dt)
-        self.collision("v")
 
-        self.set_position()
-
-    def load_graphics(self, _):
-        size = (15*SCALE,24*SCALE)
-        ts = load_tileset('player/player', size=size)
-        
-        self.shadows = {}
-        animation = {}
-        
-        def anim(name, y):
-            imgs_r = ts[y*4:(y+1)*4]
-            for n, imgs in ((f"{name}_R",imgs_r),(f"{name}_L",flips(imgs_r,1))):
-                anims, shadows = [],[]
-                for img in imgs:
-                    shadow, img = get_shadow(img, 8*SCALE)
-                    shadows.append(shadow); anims.append(img)
-                animation[n] = anims
-                self.shadows[n] = shadows
-                
-        anim('idle', 0)
-        anim("move", 1)
-        anim("damage",2)
-        anim("dead", 3)
-        return animation
-    
     def save(self):
-        if self.status == 'dead':
+        if self.dead:
             self.respawn()
             
         return {
-            "pos": (int(self.pos.x),int(self.pos.y)),
+            "pos": self.pos_save,
             "spawn_pos": self.spawn_pos,
             "inventory": self.inventory.save(),
             "tools": self.tools,
             "tool": self.tool,
             "map": self.map,
-            "health": self.health,
+            "health": self.health.value,
             'quests': self.quests
         }
-    
-    def get_side(self):
-        super().get_side()
-        self.mm = self.side == 'L'
 
-    def unfreeze(self):
-        self.frozen = False
+    @property
+    def dead(self): return self.health.dead
+    def unfreeze(self): self.frozen = False
 
     def input(self, keys, mouse, dt):
         # Reset direction (not keep moving if stopped!)
-        old_dir = self.direction
-        self.direction = vec2()
+        self.movement.direction = vec2()
 
         # Dead or frozen: None
-        if self.status == 'dead': return
-        if self.frozen: return
+        if self.dead or self.frozen: return
 
         # DIRECTION
-        self.direction.x = iskeys(keys,K_RIGHT) - iskeys(keys,K_LEFT)
-        self.direction.y = iskeys(keys,K_DOWN) - iskeys(keys,K_UP)
-        
+        self.format_direction(vec2(
+            iskeys(keys,K_RIGHT)-iskeys(keys,K_LEFT),
+            iskeys(keys,K_DOWN)-iskeys(keys,K_UP)
+        ))
+
         # Fishing (mouse)
         if self.get_tool() == 8 and self.timers['tool'].active:
             # Stop player
-            self.direction = vec2()
+            self.movement.direction = vec2()
             # Continue using rod
             if mouse[0]:
                 self.timers['tool'].activate()
@@ -141,104 +105,82 @@ class Player(Entity):
                 self.timers['fishing'].deactivate()
 
     def event(self, e):
-        if self.status == 'dead': return
-
-        # Interact
-        if self.interact:
-            o = self.world.overlay
-            if e.type == pg.KEYDOWN and e.key == pg.K_SPACE:
-                sounds.press.play()
-                o.interact_press.activate()
-            elif e.type == pg.KEYUP and e.key == pg.K_SPACE:
-                sounds.release.play()
-                o.interact_press.callback()
-                o.interact_press.deactivate()
-    
+        if self.dead: return
         # Tool
         if e.type == pg.MOUSEBUTTONDOWN and e.button == 1 and not self.timers['tool'].active and self.tools and self.world.overlay.cursor:
             self.use_tool()
     
     def damage(self, queen=False):
-        if self.timers['dead'].active: return
-        if self.timers['damage'].active: return
-        self.timers['damage'].activate()
-        self.health -= 1
-        sounds.plrhurt.play()
-
-        for _ in range(self.health):
-            self.damage_pc()
-        self.world.scratch_pc.new(self.pos, anim=queen)
+        if self.dead: return
         
-        if self.health <= 0:
-            self.health = 0
+        if super().damage():
+            # FX
+            sounds.plrhurt.play()
+            self.world.scratch_pc.new(self.pos, anim=queen)
+        
+    def die(self):
+        super().die(False)
+        sounds.plrdead.play()
 
-            for _ in range(self.max_health):
-                self.damage_pc()
-
-            self.timers['dead'].activate()
-            self.status = 'dead'
-            self.frame_idx = 0
-            self.direction = vec2()
-
-            sounds.plrdead.play()
+        self.timers['dead'].activate()
+        self.status = 'dead'
+        self.movement.direction = vec2()
 
     def respawn(self):
         """ Respawn player """
-        self.status = "idle"
-        if self.health > 0: return
 
-        # Data
-        self.set_position(self.spawn_pos)
-        self.health = self.max_health
-        self.side = "R"
-        self.frame_idx = 0
-        self.inventory.selected_idx = 0
+        self.pos = self.spawn_pos
+        self.health.value = self.health.max
 
         # Timers reset + timer respawn fade
         for timer in self.timers.values():
             timer.deactivate()
         self.timers['dead'].activate(1)
 
-        # Queen health regen
-        if self.world.queen and self.world.queen.alive():
-            self.world.queen.set_position(self.world.queen.spawn_pos)
-            if self.world.queen.health < self.world.queen.max_health:
+        # Queen restore
+        queen = self.world.queen
+        if queen and queen.alive():
+            # TP queen
+            queen.pos = queen.spawn_pos
+            # Regen queen
+            if queen.health.value < queen.health.max:
                 self.world.overlay.open_dialog([None, "The queen health was restored.", None])
-                self.world.queen.health = self.world.queen.max_health
+                queen.health.value = queen.health.max
             
     def check_interact(self):
+        if self.world.overlay.busy(): self.interact = None; return
+
         old = self.interact
         self.interact = None
-        inter_dist = None
-        if self.world.overlay.busy(): return
+        interact_dist = TS*2
         
         # PNJs
-        for pnj in self.world.filtered(self.world.pnjs.values()):
-            if pnj.name == 'explorer' and not self.world.ended and self.has(1):continue
-            dist = pnj.pos.distance_to(self.pos)
-            if dist <= TS*2 and not(inter_dist!=None and dist>inter_dist):
-                self.interact = pnj
-                inter_dist = dist
+        for obj in self.world.filtered(self.world.pnjs.values()):
+            if obj.name == 'explorer' and not self.world.ended and self.has(1):continue
+            dist = obj.pos.distance_to(self.pos)
+            if dist < interact_dist:
+                self.interact = obj
+                interact_dist = dist
             
         # Interact props
         for prop in self.world.filtered(self.world.interacts):
             dist = prop.pos.distance_to(self.pos)
-            if dist <= TS*2 and not(inter_dist!=None and dist>inter_dist):
+            if dist < interact_dist:
                 self.interact = prop
-                inter_dist = dist
+                interact_dist = dist
 
             # wider range for boat
-            elif prop.name=='boat' and dist <= TS*3 and not(inter_dist!=None and dist>inter_dist):
+            elif prop.name=='boat' and dist <= TS*3 and (self.interact==None or dist<interact_dist):
                 self.interact = prop
-                inter_dist = dist
+                interact_dist = dist
         
         # Fadein interact ui
         self.timers['interact'].activate_var(self.interact, old)
     
     def use_tool(self):
         # Rotate player
-        self.side = ('L','R')[(self.world.mouse_pos.x-W/2)>0]
-                
+        self.movement.side = ('L','R')[(self.world.mouse_pos.x-W/2)>0]
+        
         # Broken
         if self.get_tool(1)[1] == 0 and self.get_tool()!=15:
             sounds.broken.play()
@@ -246,7 +188,6 @@ class Player(Entity):
         
         # Timer
         self.timers['tool'].activate()
-
         self.update_tool_draw()
 
         # Tool function
@@ -280,7 +221,7 @@ class Player(Entity):
             sounds.slingshot.play()
             if self.has(2):
                 self.removeitem(2)
-                Pebble(self, self.tool_draw[3], (self.world.mouse_world_pos-self.tool_draw[3]).normalize(), self.world.sprites)
+                Pebble(self, self.tool_draw[3], normalize(self.world.mouse_world_pos-self.tool_draw[3]), self.world.sprites)
         
         # Watering can:
         elif self.get_tool() == 15:
@@ -292,9 +233,8 @@ class Player(Entity):
                         for _ in range(8):
                             self.world.damage_pc.new(
                                 vec2(self.tool_draw[3]),
-                                image=self.water_img.copy(),
+                                particle=self.water_img,
                                 floor=prop.rect.bottom,
-                                #group=self.particles
                             )
                         prop.data = ['wait', FRUITTREE_TIME]
                         self.get_tool(1)[1] -= 1
@@ -381,44 +321,27 @@ class Player(Entity):
             self.inventory.remove(i1,a1)
         self.world.overlay.inv_idx = 0
 
-    def get_status(self):
-        super().get_status()
-        if self.status == 'idle' and self.timers['damage'].active:
-            self.status = 'damage'
+    def anim_new(self):
+        # Walk FX
+        if self.status == 'move':
+            idx = int(self.animation.frame_idx)
+            if idx in(0,2):
+                self.world.foot_pc.new(self.rect.topleft+vec2(7,14)*SCALE)
+            elif idx == 3:
+                choice((sounds.walk,sounds.walk_mines)[self.map != WILD]).play()
 
-    def animate(self,dt):
-        old = int(self.frame_idx)
-        if self.status in ("damage","dead"):
-            length = len(self.animation[self.status+'_'+self.side])
-            if self.frame_idx+(ANIM_SPEED * dt) >= length:
-                return
-        
-        super().animate(dt)
-
-        # New frame
-        idx = int(self.frame_idx)
-        if old != idx:
-            # Particles, sound
-            if self.status == 'move':
-                if idx in(0,2):
-                    self.world.foot_pc.new(self.rect.topleft+vec2(7,14)*SCALE)
-                elif idx == 3:
-                    choice((sounds.walk,sounds.walk_mines)[self.map != WILD]).play()
-
-    def update_fishing(self):
-        if not self.timers['fishing'].active and proba(int(8/self.world.dt)):
-            self.timers['fishing'].activate()
-            sounds.bubbles.play()
-            self.world.bubble_pc.new(self.tool_draw[3])
-
+    def anim_end(self):
+        # Onetime anims
+        return self.status not in ('damage','dead')
+            
     def update_tool_draw(self):
         tool = TOOLS[self.get_tool()]
-        img = self.world.tools[tool][SIDES.index(self.side)]
-        if self.side == 'L':
+        img = self.world.imgs['tools'][tool][SIDES.index(self.movement.side)]
+        if self.movement.side == 'L':
             hand = self.rect.midleft+vec2(0,2)*SCALE
             rect = img.get_rect(midright=hand)
             spot = rect.midleft
-        elif self.side == 'R':
+        elif self.movement.side == 'R':
             hand = self.rect.midright+vec2(0,2)*SCALE
             rect = img.get_rect(midleft=hand)
             spot = rect.midright
@@ -432,18 +355,36 @@ class Player(Entity):
             self.world.display.blit(self.hand, self.hand.get_rect(center=self.tool_draw[2]-self.world.offset))
 
     def update(self, dt):
-        self.update_timers()
-        
-        if self.status == "dead":
-            res = self.animate(dt)
+        # Dead
+        if self.dead:
+            self.animation.update(dt)
             return
         
+        # Update
         self.check_interact()
-        if not self.timers['tool'].active:
-            self.get_side()
-        self.get_status()
-        self.animate(dt)
-        self.move(dt)
+        self.update_timers()
+        self.animation.update(dt)
+        self.health.update(dt)
+        
+        # Movement
+        if self.timers['knockback'].active:
+            self.movement.direction += self.timers['knockback'].dir * self.speed
+        self.movement.update(dt, False)
 
+        # Side
+        if not self.timers['tool'].active and self.movement.direction.x:
+            self.movement.side = 'LR'[self.movement.direction.x > 0]
+        self.mm = self.movement.side == 'L'
+
+        # Status
+        if self.health.cooldown.active and not self.movement.moving:
+            self.status = 'damage'
+        else:
+            self.status = ("idle","move")[self.movement.moving]
+
+        # Fishing state
         if self.get_tool() == 8 and self.timers['tool'].active:
-            self.update_fishing()
+            if not self.timers['fishing'].active and proba(int(8/self.world.dt)):
+                self.timers['fishing'].activate()
+                sounds.bubbles.play()
+                self.world.bubble_pc.new(self.tool_draw[3])
