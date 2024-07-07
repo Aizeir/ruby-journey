@@ -5,6 +5,8 @@ class Collision:
     def __init__(self, sprite, world, hitbox):
         if not hitbox:
             self.hitbox = None; return
+        elif hitbox == True:
+            self.hitbox = sprite.rect; return
         elif isinstance(hitbox, pg.Rect):
             self.hitbox = hitbox.move(sprite.rect.topleft)
         else:

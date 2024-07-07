@@ -5,11 +5,11 @@ import time
 from pytmx.util_pygame import load_pygame
 from overlay import Overlay
 from player import Player
-from animal import Animal
-from pnj import PNJ
+from sprites.animal import Animal
+from sprites.pnj import PNJ
 from prop import Prop
-from queen import Queen
-from sprite import Sprite
+from sprites.queen import Queen
+from sprites.sprite import Sprite
 from util.pnj_data import PNJ_IDX
 from util.prop_data import PROP_DATA
 from util import *
@@ -205,9 +205,9 @@ class World:
         @self.scratch_pc.init
         def init(p,**k):
             return {
-                "anim": self.scratch_imgs[k['anim']],
+                "anim": self.imgs["scratch"][k['anim']],
                 'frame': 0,
-                "image": self.scratch_imgs[k['anim']][0]
+                "image": self.imgs["scratch"][k['anim']][0]
             }
         @self.scratch_pc.update
         def update(p,w):
@@ -248,7 +248,7 @@ class World:
             p['image'].set_alpha(255*x)
 
         # Water
-        water_imgs_right = load_tileset("particle/water")
+        water_imgs_right = load_tileset("tilesets/water")
         water_imgs = [water_imgs_right, flips(water_imgs_right)]
         self.water_pc = particle.Particle()
         @self.water_pc.draw
@@ -533,7 +533,7 @@ class World:
 
     def event(self, e):
         if self.cutscene: return
-        if not self.paused and not self.overlay.busy():
+        if not self.paused and not self.overlay.busy:
             self.player.event(e)
         self.overlay.event(e)
 
@@ -596,8 +596,11 @@ class World:
         particle.draw(self, self.water_pc)
         # floor
         self.display.blit(self.floors[self.player.map], -self.offset)
+        # some particles above floor
+        particle.draw(self, self.foot_pc)
+        particle.draw(self, self.hammer_pc)
 
-    def draw_mask(self):
+    def draw_lighting(self):
         mask = self.display.copy()
 
         # Mines
@@ -676,8 +679,6 @@ class World:
         if self.game.scene!=self: return
         # - floor
         self.draw_floor(dt)
-        particle.draw(self, self.foot_pc)
-        particle.draw(self, self.hammer_pc)
         # - sprites
         for sprite in sorted(self.filter, key=lambda s: s.hitbox.bottom):
             #pg.draw.rect(self.display, 'green', sprite.rect.move(-self.offset))
@@ -686,7 +687,7 @@ class World:
         # - particles (no walk_pc)
         particle.draw(self,self.scratch_pc,self.damage_pc,self.bubble_pc)
         # - mask
-        self.draw_mask()
+        self.draw_lighting()
 
         # Overlay
         self.overlay.update()
